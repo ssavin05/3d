@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Centro de Oficinas — Reservas</title>
+<meta name="description" content="Mapa interactivo 3D para reservar oficinas y salas del centro de negocios.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ======================================================================
+   Guardia de sesión: si no hay sesión activa de Supabase, se manda al
+   visitante a login.html antes de que el mapa 3D llegue a mostrarse.
+   Usa la MISMA URL/clave y el mismo almacenamiento personalizado que
+   login.html, para que ambas páginas lean la sesión del mismo lugar.
+   ====================================================================== */
+(function () {
+  const SUPABASE_URL = "https://xashvchjvsmwyrbxwomd.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_5kJ0n19pWLvyhJuANLFwIw_nqwvn4RA";
+
+  const almacenamientoPersonalizado = {
+    getItem: (clave) => {
+      const recordar = localStorage.getItem("recordarme") !== "false";
+      return recordar ? window.localStorage.getItem(clave) : window.sessionStorage.getItem(clave);
+    },
+    setItem: (clave, valor) => {
+      const recordar = localStorage.getItem("recordarme") !== "false";
+      if (recordar) { window.localStorage.setItem(clave, valor); }
+      else { window.sessionStorage.setItem(clave, valor); }
+    },
+    removeItem: (clave) => {
+      window.localStorage.removeItem(clave);
+      window.sessionStorage.removeItem(clave);
+    }
+  };
+
+  window.__authClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { storage: almacenamientoPersonalizado, persistSession: true, autoRefreshToken: true }
+  });
+
+  window.__authReady = window.__authClient.auth.getSession().then(({ data }) => {
+    if (!data.session) {
+      window.location.replace("login.html?redirect=" + encodeURIComponent(location.pathname + location.search));
+      return false;
+    }
+    document.documentElement.classList.add("auth-ok");
+    return data.session.user;
+  });
+
+  window.__authClient.auth.onAuthStateChange((evento) => {
+    if (evento === "SIGNED_OUT") {
+      window.location.replace("login.html");
+    }
+  });
+})();
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="userBadge" style="display:none;">
+    <span id="userBadgeNombre"></span>
+    <button type="button" id="btnLogout">Cerrar sesión</button>
+  </div>
+  <header>
+    <span class="eyebrow">Centro de Oficinas · Nivel 1</span>
+    <h1>Mapa interactivo de reservas</h1>
+    <p>Toca una oficina o sala para ver precios y horarios disponibles</p>
+    <div id="searchWrap">
+      <span class="sico" aria-hidden="true">🔍</span>
+      <label for="searchInput" class="sr-only">Buscar una oficina o sala</label>
+      <input id="searchInput" type="text" placeholder="Buscar una oficina o sala…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="searchResults">
+      <div id="searchResults" role="listbox"></div>
+    </div>
+  </header>
+
+  <div id="canvas-wrap">
+    <canvas id="c"></canvas>
+  </div>
+
+  <div id="hint">arrastra para explorar · pellizca o desliza para zoom</div>
+  <div id="tip" aria-hidden="true"></div>
+
+  <button id="floatBack">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Volver al mapa
+  </button>
+
+  <button id="resetViewBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 1 3.2 6.9M3 12v6h6"/></svg>
+    Restablecer vista
+  </button>
+
+  <div id="legend" aria-label="Leyenda de disponibilidad">
+    <span class="item"><span class="dot" style="background:var(--ok)"></span>Muchos horarios</span>
+    <span class="item"><span class="dot" style="background:var(--warm)"></span>Pocos horarios</span>
+    <span class="item"><span class="dot" style="background:var(--taken)"></span>Sin disponibilidad / Reservada</span>
+    <span class="item"><span class="dot" style="background:#9b8cff"></span>Próximamente</span>
+    <span class="item"><span class="dot" style="background:var(--text-dim)"></span>No reservable / Mantenimiento</span>
+  </div>
+
+  <div id="panel" aria-live="polite"></div>
+</div>
+
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="js/config-utils.js"></script>
+<script src="js/rooms-data.js"></script>
+<script src="js/app.js"></script>
+<script>
+window.__authReady.then((user) => {
+  if (!user) return; // ya en camino a login.html
+  const badge = document.getElementById("userBadge");
+  const meta = user.user_metadata || {};
+  const nombre = meta.nombre || meta.full_name || meta.name || (user.email ? user.email.split("@")[0] : "Usuario");
+  document.getElementById("userBadgeNombre").textContent = "Hola, " + nombre;
+  badge.style.display = "flex";
+});
+document.getElementById("btnLogout").addEventListener("click", async () => {
+  await window.__authClient.auth.signOut();
+  window.location.replace("login.html");
+});
+</script>
+</body>
+</html>

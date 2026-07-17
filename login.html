@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Login - Sistema de Reservas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    /* --- Tema oscuro (por defecto) --- */
+    --bg-1: #0f1115;
+    --bg-2: #1a1d24;
+    --card-bg: #1e2128;
+    --card-border: #2a2e37;
+    --accent: #4f8cff;
+    --accent-hover: #6ba0ff;
+    --accent-dim: rgba(79,140,255,0.12);
+    --text: #f2f3f5;
+    --text-dim: #9aa0aa;
+    --text-faint: #6b7280;
+    --ok: #3ecf8e;
+    --error: #ff5c5c;
+    --media: #f5a623;
+    --radius: 14px;
+
+    --input-bg: #14161a;
+    --tabs-bg: #14161a;
+    --muted-bg: #333333;
+    --muted-bg-hover: #3d3d3d;
+    --social-hover-bg: #1c1f26;
+    --social-hover-border: #3a3f4a;
+    --disabled-bg: #333333;
+    --disabled-text: #777777;
+  }
+
+  /* --- Tema claro: se activa solo, según preferencia del sistema operativo --- */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg-1: #f4f5f7;
+      --bg-2: #e9ebef;
+      --card-bg: #ffffff;
+      --card-border: #e2e4e9;
+      --accent: #3b7dff;
+      --accent-hover: #2f6fe0;
+      --accent-dim: rgba(59,125,255,0.10);
+      --text: #1a1d24;
+      --text-dim: #5b616e;
+      --text-faint: #8b909c;
+      --ok: #1f9d6c;
+      --error: #e0393e;
+      --media: #b9750f;
+
+      --input-bg: #eef0f3;
+      --tabs-bg: #eef0f3;
+      --muted-bg: #e2e4e9;
+      --muted-bg-hover: #d3d6dc;
+      --social-hover-bg: #e9ebef;
+      --social-hover-border: #c7cad1;
+      --disabled-bg: #d9dbe0;
+      --disabled-text: #9aa0aa;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--bg-2) 60%, var(--bg-1)) 0%, var(--bg-1) 45%) fixed,
+                linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 100%);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    transition: background-color .3s ease, color .3s ease;
+  }
+
+  @keyframes aparecer {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  .caja {
+    width: 100%;
+    max-width: 380px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 32px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.15);
+    animation: aparecer 0.45s ease;
+    transition: background-color .3s ease, border-color .3s ease;
+  }
+
+  .anim-entrada { animation: aparecer 0.35s ease; }
+
+  h1 { font-size: 20px; margin-top: 0; margin-bottom: 4px; letter-spacing: -0.2px; }
+  p.subtitle { color: var(--text-dim); font-size: 13px; margin-top: 0; margin-bottom: 22px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 22px; background: var(--tabs-bg); padding: 4px; border-radius: 10px; }
+  .tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-dim);
+    transition: background 0.2s ease, color 0.2s ease;
+    user-select: none;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    margin: 0;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.activa { background: var(--accent); color: white; }
+  .tab:focus-visible,
+  .btn-principal:focus-visible,
+  .btn-social:focus-visible,
+  .link-secundario:focus-visible,
+  .toggle-password:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  label { font-size: 12px; color: var(--text-dim); display: block; margin-bottom: 4px; margin-top: 12px; }
+
+  input[type="email"], input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--card-border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color .3s ease;
+    font-family: inherit;
+  }
+  input::placeholder { color: var(--text-faint); }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+  /* --- Campo de contraseña con botón de mostrar/ocultar --- */
+  .campo-password { position: relative; }
+  .campo-password input { padding-right: 42px; }
+  .toggle-password {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-dim);
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: color 0.2s ease;
+  }
+  .toggle-password:hover { color: var(--text); }
+
+  /* --- Hints de validación en tiempo real --- */
+  .hint { font-size: 11px; min-height: 14px; margin-top: 4px; color: var(--text-faint); transition: color .15s ease; }
+  .hint-error { color: var(--error); }
+  .hint-ok { color: var(--ok); }
+
+  /* --- Indicador de fortaleza de contraseña --- */
+  .fortaleza-contenedor { margin-top: 8px; display: none; }
+  .fortaleza-barras { display: flex; gap: 4px; height: 4px; }
+  .fortaleza-barra { flex: 1; border-radius: 2px; background: var(--card-border); transition: background .25s ease; }
+  .fortaleza-barra.muy-debil { background: var(--error); }
+  .fortaleza-barra.debil { background: var(--error); }
+  .fortaleza-barra.media { background: var(--media); }
+  .fortaleza-barra.fuerte { background: var(--accent); }
+  .fortaleza-barra.muy-fuerte { background: var(--ok); }
+  .fortaleza-texto { font-size: 11px; color: var(--text-faint); margin-top: 4px; display: block; }
+
+  /* --- Recordarme --- */
+  .fila-opciones { display: flex; align-items: center; margin-top: 14px; }
+  .check-recordar { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); cursor: pointer; user-select: none; }
+  .check-recordar input { width: auto; accent-color: var(--accent); cursor: pointer; }
+
+  .btn-principal {
+    width: 100%;
+    margin-top: 20px;
+    padding: 11px;
+    border: none;
+    border-radius: 9px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-principal:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-principal:active:not(:disabled) { transform: scale(0.98); }
+  .btn-principal:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: not-allowed; }
+
+  .link-secundario {
+    display: block;
+    text-align: center;
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    width: 100%;
+    padding: 4px;
+    transition: color 0.2s ease;
+    font-family: inherit;
+  }
+  .link-secundario:hover { color: var(--accent); }
+  .link-secundario:disabled { color: var(--disabled-text); cursor: not-allowed; }
+
+  .separador {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 22px 0 16px;
+    color: var(--text-faint);
+    font-size: 12px;
+  }
+  .separador::before, .separador::after { content: ""; flex: 1; height: 1px; background: var(--card-border); }
+
+  .btn-social {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 9px;
+    border: 1px solid var(--card-border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+    font-family: inherit;
+  }
+  .btn-social:hover:not(:disabled) { background: var(--social-hover-bg); border-color: var(--social-hover-border); }
+  .btn-social:active:not(:disabled) { transform: scale(0.98); }
+  .btn-social:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-social svg { flex-shrink: 0; }
+
+  /* --- Loader / spinner reutilizable (usa currentColor, se adapta a cualquier botón) --- */
+  .spinner {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: girar .6s linear infinite;
+    vertical-align: -3px;
+    opacity: 0.85;
+  }
+
+  .mensaje {
+    font-size: 13px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    display: none;
+    animation: aparecer 0.3s ease;
+  }
+  .mensaje.error { background: rgba(255,92,92,0.12); color: var(--error); display: block; }
+  .mensaje.exito { background: rgba(62,207,142,0.12); color: var(--ok); display: block; }
+
+  /* --- Vista de sesion activa --- */
+  #vista-sesion { display: none; text-align: center; }
+  #vista-sesion .btn-principal { background: var(--muted-bg); }
+  #vista-sesion .btn-principal:hover:not(:disabled) { background: var(--muted-bg-hover); }
+
+  .avatar-usuario { display: flex; justify-content: center; margin-bottom: 14px; }
+  .avatar-iniciales, .avatar-img {
+    width: 64px; height: 64px; border-radius: 50%;
+  }
+  .avatar-iniciales {
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+    color: #fff; font-size: 24px; font-weight: 700;
+  }
+  .avatar-img { object-fit: cover; border: 2px solid var(--card-border); }
+
+  /* --- Vista de recuperar contraseña --- */
+  #vista-recuperar { display: none; }
+
+  @media (max-width: 420px) {
+    .caja { padding: 24px; border-radius: 12px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="caja">
+
+    <!-- Formularios de login / registro -->
+    <div id="vista-formularios">
+      <h1>Sistema de Reservas</h1>
+      <p class="subtitle">Inicia sesión o crea una cuenta</p>
+
+      <div class="tabs" role="tablist" aria-label="Modo de acceso">
+        <button type="button" class="tab activa" id="tab-login" role="tab" aria-selected="true" onclick="cambiarTab('login')">Iniciar sesión</button>
+        <button type="button" class="tab" id="tab-registro" role="tab" aria-selected="false" onclick="cambiarTab('registro')">Registrarme</button>
+      </div>
+
+      <form id="form-principal" autocomplete="on" novalidate>
+
+        <!-- Solo aparece en registro -->
+        <div id="campo-nombre" style="display:none;">
+          <label for="input-nombre">Nombre</label>
+          <input type="text" id="input-nombre" name="nombre" placeholder="Tu nombre" autocomplete="name">
+        </div>
+
+        <label for="input-email">Correo</label>
+        <input type="email" id="input-email" name="email" placeholder="correo@ejemplo.com" autocomplete="email" inputmode="email">
+        <p class="hint" id="hint-email"></p>
+
+        <label for="input-password">Contraseña</label>
+        <div class="campo-password">
+          <input type="password" id="input-password" name="password" placeholder="••••••••" autocomplete="current-password">
+          <button type="button" class="toggle-password" id="toggle-password" aria-label="Mostrar contraseña" aria-pressed="false" onclick="alternarVisibilidad('input-password','toggle-password')">
+            <svg class="icono-ojo" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icono-ojo-tachado" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false" style="display:none;"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.7 18.7 0 0 1 5.06-5.94M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 7 11 7a18.7 18.7 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+        <p class="hint" id="hint-password"></p>
+
+        <!-- Fortaleza de contraseña: solo visible en registro -->
+        <div class="fortaleza-contenedor" id="fortaleza-contenedor">
+          <div class="fortaleza-barras">
+            <div class="fortaleza-barra"></div>
+            <div class="fortaleza-barra"></div>
+            <div class="fortaleza-barra"></div>
+            <div class="fortaleza-barra"></div>
+          </div>
+          <span class="fortaleza-texto" id="fortaleza-texto"></span>
+        </div>
+
+        <!-- Confirmar contraseña: solo visible en registro -->
+        <div id="campo-confirmar" style="display:none;">
+          <label for="input-confirm-password">Confirmar contraseña</label>
+          <div class="campo-password">
+            <input type="password" id="input-confirm-password" name="confirmar-password" placeholder="••••••••" autocomplete="new-password">
+            <button type="button" class="toggle-password" id="toggle-confirm-password" aria-label="Mostrar contraseña" aria-pressed="false" onclick="alternarVisibilidad('input-confirm-password','toggle-confirm-password')">
+              <svg class="icono-ojo" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icono-ojo-tachado" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false" style="display:none;"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.7 18.7 0 0 1 5.06-5.94M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 7 11 7a18.7 18.7 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+          <p class="hint" id="hint-confirm"></p>
+        </div>
+
+        <!-- Recordarme -->
+        <div class="fila-opciones">
+          <label class="check-recordar">
+            <input type="checkbox" id="input-recordar" checked>
+            <span>Recordarme</span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn-principal" id="btn-submit">Iniciar sesión</button>
+
+        <button type="button" class="link-secundario" id="btn-ir-recuperar" onclick="mostrarVista('recuperar')">¿Olvidaste tu contraseña?</button>
+
+        <div class="mensaje" id="mensaje" role="alert" aria-live="polite"></div>
+
+      </form>
+
+      <div class="separador">o continuar con</div>
+
+      <button type="button" class="btn-social" id="btn-google" onclick="iniciarConGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9C16.66 14.2 17.64 11.9 17.64 9.2z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.83.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/>
+          <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
+        </svg>
+        Continuar con Google
+      </button>
+
+      <button type="button" class="btn-social" id="btn-apple" onclick="iniciarConApple()">
+        <svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M13.15 9.53c-.02-2.02 1.65-2.99 1.72-3.03-.94-1.37-2.4-1.56-2.92-1.58-1.24-.13-2.43.73-3.06.73-.63 0-1.6-.71-2.63-.69-1.35.02-2.6.79-3.3 2-1.41 2.44-.36 6.05 1 8.03.67.97 1.46 2.05 2.5 2.01 1-.04 1.38-.64 2.6-.64 1.21 0 1.56.64 2.62.62 1.09-.02 1.77-.98 2.43-1.96.77-1.12 1.08-2.21 1.1-2.27-.02-.01-2.1-.81-2.12-3.22z"/>
+          <path fill="currentColor" d="M11.06 3.5c.55-.67.92-1.6.82-2.53-.79.03-1.75.53-2.32 1.19-.51.59-.96 1.54-.84 2.44.88.07 1.78-.44 2.34-1.1z"/>
+        </svg>
+        Continuar con Apple
+      </button>
+    </div>
+
+    <!-- Vista de recuperar contraseña -->
+    <div id="vista-recuperar">
+      <h1>Recuperar contraseña</h1>
+      <p class="subtitle">Te enviaremos un enlace a tu correo</p>
+
+      <form id="form-recuperar" autocomplete="on" novalidate>
+        <label for="input-email-recuperar">Correo</label>
+        <input type="email" id="input-email-recuperar" name="email" placeholder="correo@ejemplo.com" autocomplete="email" inputmode="email">
+
+        <button type="submit" class="btn-principal" id="btn-recuperar">Enviar enlace</button>
+
+        <button type="button" class="link-secundario" onclick="mostrarVista('formularios')">Volver a iniciar sesión</button>
+
+        <div class="mensaje" id="mensaje-recuperar" role="alert" aria-live="polite"></div>
+      </form>
+    </div>
+
+    <!-- Se muestra cuando ya hay sesion activa -->
+    <div id="vista-sesion">
+      <div class="avatar-usuario" id="avatar-usuario"></div>
+      <h1 id="saludo"></h1>
+      <p class="subtitle" id="correo-sesion"></p>
+      <button class="btn-principal" id="btn-cerrar-sesion" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
+
+  </div>
+
+<script>
+
+/*
+ * ============================================================
+ * CONFIGURACIÓN PENDIENTE EN SUPABASE (no se resuelve desde el frontend)
+ * ============================================================
+ * 1. Auth > Providers > Google / Apple: habilitar y configurar credenciales.
+ * 2. Auth > URL Configuration: Site URL y Redirect URLs deben incluir el
+ *    dominio real (window.location.origin) y, si usas recuperación de
+ *    contraseña, también "/reset-password.html".
+ * 3. Auth > Providers > Email > "Confirm email": si está activo, signUp()
+ *    no genera sesión inmediata; el guardado en "usuarios" ocurrirá recién
+ *    quen el usuario confirme su correo e inicie sesión.
+ *
+ * 4. Tabla "usuarios" (para guardar nombre/correo tras el registro).
+ *    Ejecuta esto en el SQL Editor de Supabase:
+ *
+ *    create table if not exists public.usuarios (
+ *      id          uuid primary key references auth.users(id) on delete cascade,
+ *      nombre      text,
+ *      correo      text,
+ *      creado_en   timestamptz default now()
+ *    );
+ *
+ *    alter table public.usuarios enable row level security;
+ *
+ *    create policy "Un usuario puede insertar su propio perfil"
+ *      on public.usuarios for insert
+ *      with check (auth.uid() = id);
+ *
+ *    create policy "Un usuario puede actualizar su propio perfil"
+ *      on public.usuarios for update
+ *      using (auth.uid() = id);
+ *
+ *    create policy "Un usuario puede leer su propio perfil"
+ *      on public.usuarios for select
+ *      using (auth.uid() = id);
+ *
+ * 5. La ANON KEY es pública por diseño; la seguridad real depende de las
+ *    políticas de RLS anteriores.
+ * ============================================================
+ */
+
+const SUPABASE_URL = "https://xashvchjvsmwyrbxwomd.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_5kJ0n19pWLvyhJuANLFwIw_nqwvn4RA";
+
+// --- Almacenamiento personalizado para soportar "Recordarme" ---
+// Si "recordarme" está activo, la sesión persiste en localStorage (sobrevive
+// a cerrar el navegador). Si está desactivado, se usa sessionStorage (se
+// borra al cerrar la pestaña/navegador).
+const almacenamientoPersonalizado = {
+  getItem: (clave) => {
+    const recordar = localStorage.getItem("recordarme") !== "false";
+    return recordar ? window.localStorage.getItem(clave) : window.sessionStorage.getItem(clave);
+  },
+  setItem: (clave, valor) => {
+    const recordar = localStorage.getItem("recordarme") !== "false";
+    if (recordar) { window.localStorage.setItem(clave, valor); }
+    else { window.sessionStorage.setItem(clave, valor); }
+  },
+  removeItem: (clave) => {
+    window.localStorage.removeItem(clave);
+    window.sessionStorage.removeItem(clave);
+  }
+};
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storage: almacenamientoPersonalizado,
+    persistSession: true,
+    autoRefreshToken: true
+  }
+});
+
+let modo = "login"; // o "registro"
+const MENSAJE_ERROR_RED = "No se pudo conectar. Revisa tu conexión e intenta de nuevo.";
+const ETIQUETAS_FORTALEZA = ["Muy débil", "Débil", "Media", "Fuerte", "Muy fuerte"];
+const CLASES_FORTALEZA = ["muy-debil", "debil", "media", "fuerte", "muy-fuerte"];
+
+/* ======================= Utilidades de UI ======================= */
+
+function mostrarMensajeEn(idElemento, texto, tipo) {
+  const el = document.getElementById(idElemento);
+  el.textContent = texto;
+  el.className = "mensaje " + tipo;
+}
+function ocultarMensajeEn(idElemento) {
+  document.getElementById(idElemento).className = "mensaje";
+}
+function mostrarMensaje(texto, tipo) { mostrarMensajeEn("mensaje", texto, tipo); }
+function ocultarMensaje() { ocultarMensajeEn("mensaje"); }
+function mostrarMensajeRecuperar(texto, tipo) { mostrarMensajeEn("mensaje-recuperar", texto, tipo); }
+function ocultarMensajeRecuperar() { ocultarMensajeEn("mensaje-recuperar"); }
+
+function reproducirAnimacionEntrada(el) {
+  el.classList.remove("anim-entrada");
+  void el.offsetWidth; // fuerza reflow para poder reiniciar la animación
+  el.classList.add("anim-entrada");
+}
+
+// Loader para botones de texto simple (el texto cambia según contexto)
+function ponerCargandoSimple(boton, cargando, textoCargando, textoNormal) {
+  boton.disabled = cargando;
+  boton.innerHTML = cargando
+    ? `<span class="spinner" aria-hidden="true"></span> ${textoCargando}`
+    : textoNormal;
+}
+
+// Loader para botones con icono fijo (Google / Apple): conserva el SVG original
+function ponerCargandoIcono(boton, cargando, textoCargando) {
+  if (cargando) {
+    if (boton.dataset.htmlOriginal === undefined) {
+      boton.dataset.htmlOriginal = boton.innerHTML;
+    }
+    boton.innerHTML = `<span class="spinner" aria-hidden="true"></span> ${textoCargando}`;
+    boton.disabled = true;
+  } else {
+    if (boton.dataset.htmlOriginal !== undefined) {
+      boton.innerHTML = boton.dataset.htmlOriginal;
+    }
+    boton.disabled = false;
+  }
+}
+
+function bloquearBotonesSecundarios(bloquear) {
+  document.getElementById("btn-google").disabled = bloquear;
+  document.getElementById("btn-apple").disabled = bloquear;
+  document.getElementById("btn-ir-recuperar").disabled = bloquear;
+}
+
+/* ======================= Mostrar/ocultar contraseña ======================= */
+
+function alternarVisibilidad(idInput, idBoton) {
+  const input = document.getElementById(idInput);
+  const boton = document.getElementById(idBoton);
+  const estaOculta = input.type === "password";
+  input.type = estaOculta ? "text" : "password";
+  boton.setAttribute("aria-pressed", String(estaOculta));
+  boton.setAttribute("aria-label", estaOculta ? "Ocultar contraseña" : "Mostrar contraseña");
+  boton.querySelector(".icono-ojo").style.display = estaOculta ? "none" : "block";
+  boton.querySelector(".icono-ojo-tachado").style.display = estaOculta ? "block" : "none";
+}
+
+function reiniciarVisibilidadPassword(idInput, idBoton) {
+  const input = document.getElementById(idInput);
+  const boton = document.getElementById(idBoton);
+  input.type = "password";
+  boton.setAttribute("aria-pressed", "false");
+  boton.setAttribute("aria-label", "Mostrar contraseña");
+  boton.querySelector(".icono-ojo").style.display = "block";
+  boton.querySelector(".icono-ojo-tachado").style.display = "none";
+}
+
+/* ======================= Fortaleza de contraseña ======================= */
+
+function calcularFortaleza(clave) {
+  let puntaje = 0;
+  if (clave.length >= 8) puntaje++;
+  if (/[a-z]/.test(clave) && /[A-Z]/.test(clave)) puntaje++;
+  if (/\d/.test(clave)) puntaje++;
+  if (/[^A-Za-z0-9]/.test(clave)) puntaje++;
+  return puntaje; // 0 a 4
+}
+
+function actualizarFortalezaPassword() {
+  const contenedor = document.getElementById("fortaleza-contenedor");
+  if (modo !== "registro") { contenedor.style.display = "none"; return; }
+
+  const clave = document.getElementById("input-password").value;
+  contenedor.style.display = clave ? "block" : "none";
+  if (!clave) return;
+
+  const puntaje = calcularFortaleza(clave);
+  const nivelRelleno = Math.max(puntaje, 1);
+  const clase = CLASES_FORTALEZA[puntaje];
+
+  document.querySelectorAll("#fortaleza-contenedor .fortaleza-barra").forEach((barra, i) => {
+    barra.classList.remove(...CLASES_FORTALEZA);
+    if (i < nivelRelleno) barra.classList.add(clase);
+  });
+  document.getElementById("fortaleza-texto").textContent = ETIQUETAS_FORTALEZA[puntaje];
+}
+
+/* ======================= Validación en tiempo real ======================= */
+
+function validarEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validarCampoEmail() {
+  const valor = document.getElementById("input-email").value.trim();
+  const el = document.getElementById("hint-email");
+  if (!valor) { el.textContent = ""; el.className = "hint"; return; }
+  if (validarEmail(valor)) { el.textContent = ""; el.className = "hint"; }
+  else { el.textContent = "Correo no válido"; el.className = "hint hint-error"; }
+}
+
+function validarCampoPassword() {
+  const valor = document.getElementById("input-password").value;
+  const el = document.getElementById("hint-password");
+  if (!valor) { el.textContent = ""; el.className = "hint"; return; }
+  if (valor.length < 6) { el.textContent = "Mínimo 6 caracteres"; el.className = "hint hint-error"; }
+  else { el.textContent = ""; el.className = "hint"; }
+}
+
+function validarCampoConfirmacion() {
+  const el = document.getElementById("hint-confirm");
+  if (modo !== "registro") { el.textContent = ""; el.className = "hint"; return; }
+  const clave = document.getElementById("input-password").value;
+  const confirmar = document.getElementById("input-confirm-password").value;
+  if (!confirmar) { el.textContent = ""; el.className = "hint"; return; }
+  if (confirmar !== clave) { el.textContent = "Las contraseñas no coinciden"; el.className = "hint hint-error"; }
+  else { el.textContent = "Coinciden"; el.className = "hint hint-ok"; }
+}
+
+function formularioEsValido() {
+  const email = document.getElementById("input-email").value.trim();
+  const password = document.getElementById("input-password").value;
+  const nombre = document.getElementById("input-nombre").value.trim();
+  const confirmar = document.getElementById("input-confirm-password").value;
+
+  if (!validarEmail(email)) return false;
+  if (password.length < 6) return false;
+  if (modo === "registro") {
+    if (!nombre) return false;
+    if (confirmar !== password) return false;
+  }
+  return true;
+}
+
+function actualizarEstadoEnvio() {
+  document.getElementById("btn-submit").disabled = !formularioEsValido();
+}
+
+/* ======================= Cambio de vistas / pestañas ======================= */
+
+function cambiarTab(nuevoModo) {
+  modo = nuevoModo;
+  const esRegistro = modo === "registro";
+
+  document.getElementById("tab-login").classList.toggle("activa", !esRegistro);
+  document.getElementById("tab-login").setAttribute("aria-selected", String(!esRegistro));
+  document.getElementById("tab-registro").classList.toggle("activa", esRegistro);
+  document.getElementById("tab-registro").setAttribute("aria-selected", String(esRegistro));
+
+  document.getElementById("campo-nombre").style.display = esRegistro ? "block" : "none";
+  document.getElementById("campo-confirmar").style.display = esRegistro ? "block" : "none";
+  document.getElementById("btn-submit").textContent = esRegistro ? "Crear cuenta" : "Iniciar sesión";
+
+  document.getElementById("input-password").setAttribute(
+    "autocomplete",
+    esRegistro ? "new-password" : "current-password"
+  );
+
+  if (!esRegistro) {
+    // Limpieza al volver a login para no dejar datos de registro a medias
+    document.getElementById("input-confirm-password").value = "";
+    document.getElementById("hint-confirm").textContent = "";
+    document.getElementById("fortaleza-contenedor").style.display = "none";
+    reiniciarVisibilidadPassword("input-confirm-password", "toggle-confirm-password");
+  }
+
+  actualizarFortalezaPassword();
+  validarCampoConfirmacion();
+  actualizarEstadoEnvio();
+  ocultarMensaje();
+}
+
+function mostrarVista(vista) {
+  const formularios = document.getElementById("vista-formularios");
+  const recuperar = document.getElementById("vista-recuperar");
+  formularios.style.display = vista === "formularios" ? "block" : "none";
+  recuperar.style.display = vista === "recuperar" ? "block" : "none";
+  reproducirAnimacionEntrada(vista === "recuperar" ? recuperar : formularios);
+  ocultarMensaje();
+  ocultarMensajeRecuperar();
+}
+
+/* ======================= Perfil de usuario (avatar + nombre) ======================= */
+
+function obtenerNombreUsuario(user) {
+  const meta = user.user_metadata || {};
+  return meta.nombre || meta.full_name || meta.name || (user.email ? user.email.split("@")[0] : "Usuario");
+}
+
+function actualizarAvatar(user, nombre) {
+  const contenedor = document.getElementById("avatar-usuario");
+  contenedor.innerHTML = "";
+  const meta = user.user_metadata || {};
+  const urlFoto = meta.avatar_url || meta.picture;
+
+  if (urlFoto) {
+    const img = document.createElement("img");
+    img.src = urlFoto;
+    img.alt = `Avatar de ${nombre}`;
+    img.className = "avatar-img";
+    img.referrerPolicy = "no-referrer";
+    contenedor.appendChild(img);
+  } else {
+    const div = document.createElement("div");
+    div.className = "avatar-iniciales";
+    div.setAttribute("aria-hidden", "true");
+    div.textContent = (nombre.trim().charAt(0) || "?").toUpperCase();
+    contenedor.appendChild(div);
+  }
+}
+
+// Guarda/actualiza el perfil en la tabla "usuarios" (upsert = crea o actualiza, es idempotente).
+// Se llama tanto tras el registro como tras cualquier inicio de sesión (incluido OAuth),
+// así el perfil siempre queda sincronizado sin duplicar filas.
+async function guardarPerfilUsuario(user, nombreOpcional) {
+  try {
+    const nombre = nombreOpcional || obtenerNombreUsuario(user);
+    const { error } = await supabaseClient
+      .from("usuarios")
+      .upsert({ id: user.id, nombre: nombre, correo: user.email }, { onConflict: "id" });
+    if (error) {
+      // No bloquea el login si la tabla no existe todavía o RLS lo impide;
+      // solo se registra en consola para diagnóstico.
+      console.warn("No se pudo guardar el perfil en 'usuarios':", error.message);
+    }
+  } catch (err) {
+    console.warn("Error de red al guardar el perfil en 'usuarios':", err);
+  }
+}
+
+// Adónde volver tras iniciar sesión. Solo se acepta una ruta relativa propia
+// del sitio (nunca una URL externa) para evitar redirects a otros dominios;
+// si no hay un valor válido en ?redirect=, se vuelve al mapa por defecto.
+function destinoTrasLogin() {
+  const parametro = new URLSearchParams(window.location.search).get("redirect");
+  if (parametro && parametro.startsWith("/") === false && parametro.includes("://") === false) {
+    return parametro;
+  }
+  return "index.html";
+}
+
+function mostrarSesionActiva(user) {
+  document.getElementById("vista-formularios").style.display = "none";
+  document.getElementById("vista-recuperar").style.display = "none";
+  const vistaSesion = document.getElementById("vista-sesion");
+  vistaSesion.style.display = "block";
+  reproducirAnimacionEntrada(vistaSesion);
+
+  const nombre = obtenerNombreUsuario(user);
+  document.getElementById("saludo").textContent = `Hola, ${nombre}`;
+  document.getElementById("correo-sesion").textContent = user.email;
+  actualizarAvatar(user, nombre);
+
+  // El "llamado" al mapa: en cuanto hay sesión confirmada, se vuelve
+  // automáticamente al mapa 3D en vez de quedarse en esta pantalla.
+  setTimeout(() => { window.location.replace(destinoTrasLogin()); }, 600);
+}
+
+/* ======================= Envío del formulario de login/registro ======================= */
+
+document.getElementById("form-principal").addEventListener("submit", function (evento) {
+  evento.preventDefault();
+  enviarFormulario();
+});
+
+async function enviarFormulario() {
+  const email = document.getElementById("input-email").value.trim();
+  const password = document.getElementById("input-password").value;
+  const nombre = document.getElementById("input-nombre").value.trim();
+  const confirmar = document.getElementById("input-confirm-password").value;
+  const recordar = document.getElementById("input-recordar").checked;
+
+  if (!email || !password) {
+    mostrarMensaje("Completa correo y contraseña.", "error");
+    return;
+  }
+  if (!validarEmail(email)) {
+    mostrarMensaje("Ingresa un correo válido.", "error");
+    return;
+  }
+  if (password.length < 6) {
+    mostrarMensaje("La contraseña debe tener al menos 6 caracteres.", "error");
+    return;
+  }
+  if (modo === "registro" && !nombre) {
+    mostrarMensaje("Ingresa tu nombre.", "error");
+    return;
+  }
+  if (modo === "registro" && confirmar !== password) {
+    mostrarMensaje("Las contraseñas no coinciden.", "error");
+    return;
+  }
+
+  // Se fija la preferencia de "recordarme" antes de la petición para que el
+  // almacenamiento personalizado guarde el token en el lugar correcto.
+  localStorage.setItem("recordarme", String(recordar));
+
+  const boton = document.getElementById("btn-submit");
+  const textoNormal = modo === "registro" ? "Crear cuenta" : "Iniciar sesión";
+  ponerCargandoSimple(boton, true, "Procesando...", textoNormal);
+  bloquearBotonesSecundarios(true);
+  ocultarMensaje();
+
+  try {
+    if (modo === "registro") {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: { data: { nombre: nombre } }
+      });
+
+      if (error) {
+        mostrarMensaje(error.message, "error");
+      } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+        // Caso especial: Supabase, por seguridad (para no revelar que correos existen),
+        // a veces responde "exitoso" pero sin crear nada nuevo cuando el correo ya
+        // esta registrado. Este chequeo detecta ese caso especifico :p
+        mostrarMensaje("Ese correo ya tiene una cuenta. Intenta iniciar sesión.", "error");
+      } else {
+        if (data.user) { await guardarPerfilUsuario(data.user, nombre); }
+        if (data.session) {
+          mostrarSesionActiva(data.user);
+        } else {
+          mostrarMensaje("Cuenta creada. Revisa tu correo para confirmar (si esta activado).", "exito");
+        }
+      }
+    } else {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        mostrarMensaje(error.message, "error");
+      } else {
+        await guardarPerfilUsuario(data.user);
+        mostrarSesionActiva(data.user);
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    mostrarMensaje(MENSAJE_ERROR_RED, "error");
+  } finally {
+    ponerCargandoSimple(boton, false, "", textoNormal);
+    bloquearBotonesSecundarios(false);
+    actualizarEstadoEnvio();
+  }
+}
+
+/* ======================= Recuperar contraseña ======================= */
+
+document.getElementById("form-recuperar").addEventListener("submit", function (evento) {
+  evento.preventDefault();
+  enviarRecuperacion();
+});
+
+async function enviarRecuperacion() {
+  const email = document.getElementById("input-email-recuperar").value.trim();
+
+  if (!email) {
+    mostrarMensajeRecuperar("Ingresa tu correo.", "error");
+    return;
+  }
+  if (!validarEmail(email)) {
+    mostrarMensajeRecuperar("Ingresa un correo válido.", "error");
+    return;
+  }
+
+  const boton = document.getElementById("btn-recuperar");
+  ponerCargandoSimple(boton, true, "Enviando...", "Enviar enlace");
+  ocultarMensajeRecuperar();
+
+  try {
+    // NOTA: la ruta "/reset-password.html" debe existir en tu sitio y estar
+    // agregada a las Redirect URLs permitidas en el dashboard de Supabase.
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/reset-password.html"
+    });
+
+    if (error) {
+      mostrarMensajeRecuperar(error.message, "error");
+    } else {
+      mostrarMensajeRecuperar("Te enviamos un enlace para restablecer tu contraseña.", "exito");
+    }
+  } catch (err) {
+    console.error(err);
+    mostrarMensajeRecuperar(MENSAJE_ERROR_RED, "error");
+  } finally {
+    ponerCargandoSimple(boton, false, "", "Enviar enlace");
+  }
+}
+
+/* ======================= OAuth: Google / Apple ======================= */
+
+async function iniciarConGoogle() {
+  const recordar = document.getElementById("input-recordar").checked;
+  localStorage.setItem("recordarme", String(recordar));
+
+  const boton = document.getElementById("btn-google");
+  ponerCargandoIcono(boton, true, "Redirigiendo...");
+  ocultarMensaje();
+  try {
+    // Requiere tener habilitado el proveedor "Google" en Supabase (Auth > Providers).
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) {
+      mostrarMensaje(error.message, "error");
+      ponerCargandoIcono(boton, false);
+    }
+    // Si no hay error, Supabase redirige automáticamente a Google.
+  } catch (err) {
+    console.error(err);
+    mostrarMensaje(MENSAJE_ERROR_RED, "error");
+    ponerCargandoIcono(boton, false);
+  }
+}
+
+async function iniciarConApple() {
+  const recordar = document.getElementById("input-recordar").checked;
+  localStorage.setItem("recordarme", String(recordar));
+
+  const boton = document.getElementById("btn-apple");
+  ponerCargandoIcono(boton, true, "Redirigiendo...");
+  ocultarMensaje();
+  try {
+    // Requiere tener habilitado el proveedor "Apple" en Supabase (Auth > Providers).
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) {
+      mostrarMensaje(error.message, "error");
+      ponerCargandoIcono(boton, false);
+    }
+    // Si no hay error, Supabase redirige automáticamente a Apple.
+  } catch (err) {
+    console.error(err);
+    mostrarMensaje(MENSAJE_ERROR_RED, "error");
+    ponerCargandoIcono(boton, false);
+  }
+}
+
+/* ======================= Cerrar sesión ======================= */
+
+async function cerrarSesion() {
+  const boton = document.getElementById("btn-cerrar-sesion");
+  ponerCargandoSimple(boton, true, "Cerrando...", "Cerrar sesión");
+  try {
+    await supabaseClient.auth.signOut();
+  } catch (err) {
+    console.error(err);
+  } finally {
+    ponerCargandoSimple(boton, false, "", "Cerrar sesión");
+  }
+  document.getElementById("vista-sesion").style.display = "none";
+  const formularios = document.getElementById("vista-formularios");
+  formularios.style.display = "block";
+  reproducirAnimacionEntrada(formularios);
+  document.getElementById("input-email").value = "";
+  document.getElementById("input-password").value = "";
+  reiniciarVisibilidadPassword("input-password", "toggle-password");
+}
+
+/* ======================= Sesión al cargar + escucha de cambios ======================= */
+
+async function revisarSesionAlCargar() {
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    if (data.session) {
+      mostrarSesionActiva(data.session.user);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+revisarSesionAlCargar();
+
+// Cubre el regreso del redirect de OAuth, el refresco automático de token y
+// el cierre/inicio de sesión disparado desde otra pestaña.
+supabaseClient.auth.onAuthStateChange((evento, session) => {
+  if (evento === "SIGNED_IN" && session) {
+    guardarPerfilUsuario(session.user);
+    mostrarSesionActiva(session.user);
+  } else if (evento === "SIGNED_OUT") {
+    document.getElementById("vista-sesion").style.display = "none";
+    document.getElementById("vista-formularios").style.display = "block";
+  }
+});
+
+/* ======================= Inicialización de listeners ======================= */
+
+document.getElementById("input-recordar").checked = localStorage.getItem("recordarme") !== "false";
+document.getElementById("input-recordar").addEventListener("change", function () {
+  localStorage.setItem("recordarme", String(this.checked));
+});
+
+document.getElementById("input-email").addEventListener("input", () => { validarCampoEmail(); actualizarEstadoEnvio(); });
+document.getElementById("input-password").addEventListener("input", () => {
+  validarCampoPassword();
+  actualizarFortalezaPassword();
+  validarCampoConfirmacion();
+  actualizarEstadoEnvio();
+});
+document.getElementById("input-confirm-password").addEventListener("input", () => { validarCampoConfirmacion(); actualizarEstadoEnvio(); });
+document.getElementById("input-nombre").addEventListener("input", () => actualizarEstadoEnvio());
+
+actualizarEstadoEnvio();
+</script>
+</body>
+</html>
