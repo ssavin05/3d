@@ -5,13 +5,13 @@
    Cambiar valores aquí afecta a toda la app sin tocar otros módulos.
    ====================================================================== */
 
-/* Escala del plano: convierte píxeles del plano original a unidades 3D */
-const SCALE = 0.042;
-/* CENTER_X/CENTER_Y recalculados a partir del plano arquitectónico real
-   (planos_oficina_y_estacionamiento.pdf): el edificio real es más
-   profundo (norte-sur) que ancho (este-oeste), al revés de como estaba
-   antes. Ver rooms-data.js para las coordenadas de cada espacio. */
-const CENTER_X = 640, CENTER_Y = 789;
+/* Escala del plano: las coordenadas de rooms-data.js ya están en metros
+   reales (tomados directo de las cotas del plano arquitectónico), así
+   que aquí no hace falta convertir nada. */
+const SCALE = 1;
+/* Centro del edificio en metros (mitad del ancho total x mitad del
+   fondo total). Ver rooms-data.js para las coordenadas de cada espacio. */
+const CENTER_X = 11.225, CENTER_Y = 14.80;
 
 /* Bloques horarios reservables (2 h cada uno) */
 const HOURS = ["09:00-11:00", "11:00-13:00", "13:00-15:00", "15:00-17:00", "17:00-19:00", "19:00-21:00"];

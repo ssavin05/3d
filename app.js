@@ -728,7 +728,7 @@ floor.position.y = -0.05;
 scene.add(floor);
 
 /* ---------- contorno del edificio ---------- */
-const bOverall = rect(20, -10, 1240, 1600);
+const bOverall = rect(-0.35, -0.35, 22.45 + 0.7, 29.60 + 0.7);
 const outlineGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(bOverall.w + 0.6, 0.02, bOverall.d + 0.6));
 const outline = new THREE.LineSegments(outlineGeo, new THREE.LineBasicMaterial({ color: 0x5fd4ff, transparent: true, opacity: 0.35 }));
 outline.position.set(bOverall.x, 0, bOverall.z);
