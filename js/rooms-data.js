@@ -7,15 +7,16 @@
    NO necesitas tocar ningún otro archivo .js para eso. Copia uno de los
    objetos dentro de ROOMS, cambia sus datos y listo.
 
-   ⚠️ LAYOUT ACTUALIZADO (v4): las coordenadas de este archivo se volvieron
-   a trazar directamente sobre el plano arquitectónico (P.A.P.) que subió
-   el cliente, usando las COTAS EN METROS impresas en el plano en vez de
-   medir píxeles a ojo. `rect(x, y, w, h)` recibe metros reales: x/y es la
-   esquina superior-izquierda del espacio (norte-oeste) y w/h su ancho y
-   fondo. El edificio completo mide 22.45 m de ancho x 29.60 m de fondo.
-   Si el plano físico vuelve a cambiar, hay que volver a medir sobre el
-   plano y ajustar los rect() de aquí abajo (y CENTER_X/CENTER_Y en
-   config-utils.js si el tamaño total cambia).
+   ⚠️ LAYOUT ACTUALIZADO (v5): coordenadas tomadas directo de las cotas
+   en metros del plano de referencia del cliente. `rect(x, y, w, h)`
+   recibe metros reales: x/y es la esquina superior-izquierda del
+   espacio (norte-oeste) y w/h su ancho y fondo. El edificio completo
+   mide 20.00 m de ancho x 27.41 m de fondo.
+
+   A propósito NO se modelan aquí detalles decorativos (pérgolas con
+   postes, árboles, coches, cajones de estacionamiento pintados, muros
+   achaflanados): sólo los cuartos, sus puertas y los pasillos que los
+   conectan, que es lo que necesita el mapa de reservas.
    ====================================================================== */
 /* ============================== rooms.js ============================== */
 /* ======================================================================
@@ -57,31 +58,13 @@ function horariosPorDia(basePattern, seed) {
 /* ======================================================================
    1. ARREGLO ÚNICO DE ESPACIOS (fuente de verdad, lista para admin)
    ====================================================================== */
-/* ----------------------------------------------------------------------
-   Cuadrícula del plano (cotas en metros, tomadas del plano P.A.P.):
-
-   Columna A (x  0.00- 5.15): Oficina Principal / Baño / Jardín Privado /
-                               Espacio Abierto
-   Columna B (x  5.15- 9.75): Sala de Juntas / Lobby / Baño / Oficina B /
-                               Archivero / Cochera
-   Columna C (x  9.75-16.45): Patio 1 / Cocina + Baño + Servicio /
-                               Almacén / Oficina + Recepción
-   Columna D (x 16.45-22.45): Patio 2 / Oficina A / Oficina D / Baño /
-                               Almacén / Oficina C
-
-   `door` indica en qué muro y con qué desplazamiento (en metros, desde
-   el centro de esa pared) va la puerta. `open: true` = espacio sin muro
-   completo (patio, jardines, cochera), con un bordillo bajo en vez de
-   muro alto y totalmente abierto por el lado de la puerta.
-   ---------------------------------------------------------------------- */
 const ROOMS = [
   /* ==================== ESPACIOS RENTABLES (oficinas y salas) ==================== */
   {
     id: "oficina-principal", nombre: "Oficina Principal", codigo: "OF-PRINCIPAL", icon: "🏢", bookable: true,
     estado: STATUS.DISPONIBLE.id,
-    rect: rect(0.00, 0.00, 5.15, 5.35), capacidad: 8,
-    door: { side: "s", offset: 1.8, glass: true, width: 1.15 },
-    wallHeight: 2.6,
+    rect: rect(0.00, 0.00, 6.53, 5.86), capacidad: 10,
+    door: { side: "s", offset: 1.335, width: 1.0 },
     precioHora: 320, precioDia: 2100,
     desc: "Oficina en la esquina noroeste del edificio, con luz natural directa y acceso rápido al jardín privado. Ideal para dirección o equipos que necesitan un espacio propio todo el día.",
     amenities: am("wifi", "ac", "proyector", "accesible", "estacionamiento"),
@@ -91,9 +74,8 @@ const ROOMS = [
   {
     id: "sala-juntas", nombre: "Sala de Juntas", codigo: "SJ-01", icon: "📊", bookable: true,
     estado: STATUS.DISPONIBLE.id,
-    rect: rect(5.15, 0.00, 4.60, 4.00), capacidad: 10,
-    door: { side: "s", offset: 0 },
-    wallHeight: 2.4,
+    rect: rect(6.94, 0.00, 4.78, 4.92), capacidad: 10,
+    door: { side: "s", offset: -0.64, width: 1.0 },
     precioHora: 350, precioDia: 2200,
     desc: "Sala ejecutiva con mesa para diez personas, ideal para juntas, entrevistas o presentaciones a clientes.",
     amenities: am("wifi", "ac", "proyector", "pizarron", "accesible", "cafe"),
@@ -103,23 +85,21 @@ const ROOMS = [
   {
     id: "oficina-b", nombre: "Oficina B", codigo: "OF-B", icon: "🏢", bookable: true,
     estado: STATUS.DISPONIBLE.id,
-    rect: rect(5.15, 8.00, 4.60, 4.80), capacidad: 4,
-    door: { side: "n", offset: 0 },
-    wallHeight: 2.4,
-    precioHora: 200, precioDia: 1300,
-    desc: "Oficina privada de tamaño mediano en el corazón del edificio, junto al archivero, ideal para equipos pequeños que necesitan concentración.",
-    amenities: am("wifi", "ac", "accesible"),
+    rect: rect(6.53, 13.27, 1.35, 5.65), capacidad: 2,
+    door: { side: "e", offset: -0.325, width: 0.9 },
+    precioHora: 180, precioDia: 1150,
+    desc: "Oficina angosta en el corazón del edificio, junto al archivero, ideal para uso individual o llamadas privadas.",
+    amenities: am("wifi", "ac"),
     fotos: ["🏢", "🪑", "💻"],
     horariosPorDia: horariosPorDia([0, 1, 1, 0, 0, 1], "OFB-01"),
   },
   {
     id: "oficina-a", nombre: "Oficina A", codigo: "OF-A", icon: "🏢", bookable: true,
     estado: STATUS.DISPONIBLE.id,
-    rect: rect(16.45, 12.90, 6.00, 4.10), capacidad: 6,
-    door: { side: "w", offset: 0, glass: true, width: 1.15 },
-    wallHeight: 2.4,
+    rect: rect(15.29, 11.78, 4.71, 3.51), capacidad: 5,
+    door: { side: "w", offset: -0.255, width: 1.0 },
     precioHora: 260, precioDia: 1700,
-    desc: "Oficina ubicada en el ala este del edificio, junto al Patio 2. Perfecta para equipos que buscan independencia y comodidad.",
+    desc: "Oficina ubicada en el ala este del edificio, junto al patio. Perfecta para equipos que buscan independencia y comodidad.",
     amenities: am("wifi", "ac", "proyector", "accesible"),
     fotos: ["🏢", "🚿", "📶"],
     horariosPorDia: horariosPorDia([1, 0, 1, 1, 0, 1], "OFA-01"),
@@ -127,9 +107,8 @@ const ROOMS = [
   {
     id: "oficina-d", nombre: "Oficina D", codigo: "OF-D", icon: "🏢", bookable: true,
     estado: STATUS.RESERVADA.id,
-    rect: rect(16.45, 17.00, 6.00, 3.60), capacidad: 5,
-    door: { side: "w", offset: 0 },
-    wallHeight: 2.4,
+    rect: rect(15.29, 15.29, 2.96, 3.63), capacidad: 3,
+    door: { side: "s", offset: 0, width: 1.0 },
     precioHora: 220, precioDia: 1450,
     desc: "Oficina en el ala este, junto al baño y almacén comunitarios, con acceso directo al pasillo principal.",
     amenities: am("wifi", "ac"),
@@ -139,9 +118,8 @@ const ROOMS = [
   {
     id: "oficina-c", nombre: "Oficina C", codigo: "OF-C", icon: "🏢", bookable: true,
     estado: STATUS.DISPONIBLE.id,
-    rect: rect(16.45, 24.00, 6.00, 5.60), capacidad: 7,
-    door: { side: "w", offset: 0, glass: true, width: 1.15 },
-    wallHeight: 2.4,
+    rect: rect(18.25, 21.21, 1.75, 4.99), capacidad: 3,
+    door: { side: "w", offset: 0, width: 1.0 },
     precioHora: 240, precioDia: 1550,
     desc: "Oficina esquinera en la planta baja, junto a la recepción del edificio. Buena opción para negocios que reciben visitas frecuentes.",
     amenities: am("wifi", "ac", "accesible", "estacionamiento"),
@@ -151,9 +129,8 @@ const ROOMS = [
   {
     id: "oficina-recepcion", nombre: "Oficina", codigo: "OF-05", icon: "🏢", bookable: true,
     estado: STATUS.PROXIMAMENTE.id,
-    rect: rect(9.75, 22.30, 3.35, 7.30), capacidad: 4,
-    door: { side: "e", offset: 0 },
-    wallHeight: 2.4,
+    rect: rect(11.52, 21.35, 2.69, 4.85), capacidad: 4,
+    door: { side: "s", offset: 0.005, width: 1.0 },
     precioHora: 190, precioDia: 1250,
     desc: "Oficina en planta baja, junto a la recepción y la cochera. Próximamente disponible para reserva.",
     amenities: am("wifi", "ac"),
@@ -163,9 +140,9 @@ const ROOMS = [
   {
     id: "espacio-abierto", nombre: "Espacio Abierto / Coworking", codigo: "EA-01", icon: "🧑‍💻", bookable: true,
     estado: STATUS.DISPONIBLE.id,
-    rect: rect(0.00, 12.10, 5.15, 17.50), capacidad: 15,
+    rect: rect(0.00, 12.79, 6.53, 13.41), capacidad: 18,
     open: true,
-    door: { side: "n", offset: 0 },
+    door: { side: "s", offset: -0.065, width: 1.2 },
     precioHora: 150, precioDia: 950,
     desc: "Gran área de coworking de planta abierta junto al jardín privado, con mesas compartidas. Ideal para trabajo flexible por horas.",
     amenities: am("wifi", "ac", "accesible"),
@@ -176,99 +153,102 @@ const ROOMS = [
   /* ==================== ESPACIOS INFORMATIVOS (no reservables) ==================== */
   {
     id: "bano-of-principal", nombre: "Baño", codigo: "WC-01", icon: "🚻", bookable: false,
-    rect: rect(0.00, 5.35, 5.15, 1.60),
-    door: { side: "n", offset: 0 },
+    rect: rect(0.00, 5.86, 2.90, 2.09),
+    door: { side: "e", offset: -0.045, width: 0.85 },
     desc: "Servicio sanitario de la Oficina Principal.",
   },
   {
+    id: "lobby", nombre: "Lobby", codigo: "LB-01", icon: "🛋", bookable: false,
+    rect: rect(6.94, 4.92, 2.29, 3.03),
+    door: { side: "e", offset: -0.02, width: 1.0 },
+    desc: "Vestíbulo de entrada del edificio, junto a la Sala de Juntas.",
+  },
+  {
     id: "jardin-privado", nombre: "Jardín Privado", codigo: "JP-01", icon: "🌿", bookable: false,
-    rect: rect(0.00, 6.95, 5.15, 5.15), open: true,
+    rect: rect(0.00, 7.95, 6.53, 4.84), open: true,
     door: { side: "n", offset: 0 },
     desc: "Jardín privado exterior contiguo a la Oficina Principal.",
   },
   {
-    id: "lobby", nombre: "Lobby", codigo: "LB-01", icon: "🛋", bookable: false,
-    rect: rect(5.15, 4.00, 4.60, 2.20),
-    door: { side: "s", offset: 0 },
-    desc: "Vestíbulo de entrada del edificio, junto a la Sala de Juntas.",
-  },
-  {
-    id: "patio-1", nombre: "Patio 1", codigo: "PT-01", icon: "🌳", bookable: false,
-    rect: rect(9.75, 0.00, 6.70, 12.90), open: true,
+    id: "patio", nombre: "Patio", codigo: "PT-01", icon: "🌳", bookable: false,
+    rect: rect(9.23, 0.00, 9.02, 11.78), open: true,
     door: { side: "w", offset: 0 },
     desc: "Patio interior techado, disponible como espacio de descanso para todo el edificio.",
   },
   {
-    id: "patio-2", nombre: "Patio 2", codigo: "PT-02", icon: "🌳", bookable: false,
-    rect: rect(16.45, 0.00, 6.00, 12.90), open: true,
+    id: "comunitario-norte", nombre: "Comunitario", codigo: "CM-01", icon: "🌳", bookable: false,
+    rect: rect(18.25, 0.00, 1.75, 11.78), open: true,
     door: { side: "w", offset: 0 },
-    desc: "Segundo patio interior, con pendiente del 2% para desalojo de agua pluvial, de uso compartido entre todos los inquilinos.",
+    desc: "Franja de jardín comunitario en el costado este del edificio.",
   },
   {
     id: "bano-b", nombre: "Baño", codigo: "WC-02", icon: "🚻", bookable: false,
-    rect: rect(5.15, 6.20, 4.60, 1.80),
-    door: { side: "s", offset: 0 },
-    desc: "Servicio sanitario junto al Lobby.",
-  },
-  {
-    id: "archivero", nombre: "Archivero", codigo: "AR-01", icon: "🗄️", bookable: false,
-    rect: rect(5.15, 12.80, 4.60, 3.00),
-    door: { side: "n", offset: 0 },
-    desc: "Área de archivo muerto y almacenamiento documental.",
+    rect: rect(6.53, 11.78, 1.35, 1.49),
+    door: { side: "e", offset: 0, width: 0.8 },
+    desc: "Servicio sanitario junto a la Oficina B.",
   },
   {
     id: "cocina", nombre: "Cocina Comunitaria", codigo: "SRV-01", icon: "🍳", bookable: false,
-    rect: rect(9.75, 12.90, 2.70, 4.80),
-    door: { side: "s", offset: 0 },
+    rect: rect(7.88, 11.78, 3.64, 2.56),
+    door: { side: "s", offset: -0.02, width: 1.0 },
     desc: "Cocineta compartida con cafetera, microondas y refrigerador para todos los inquilinos del piso.",
   },
   {
     id: "bano-cocina", nombre: "Baño Comunitario", codigo: "WC-03", icon: "🚻", bookable: false,
-    rect: rect(12.45, 12.90, 1.80, 4.80),
-    door: { side: "s", offset: 0 },
+    rect: rect(11.52, 11.78, 1.07, 2.56),
+    door: { side: "s", offset: 0, width: 0.8 },
     desc: "Servicio sanitario de uso común junto a la cocina.",
   },
   {
     id: "servicio", nombre: "Servicio", codigo: "SRV-02", icon: "🧹", bookable: false,
-    rect: rect(14.25, 12.90, 2.20, 4.80),
-    door: { side: "s", offset: 0 },
+    rect: rect(12.59, 11.78, 2.70, 2.56),
+    door: { side: "s", offset: 0, width: 1.0 },
     desc: "Cuarto de servicio y limpieza.",
   },
   {
+    id: "archivero", nombre: "Archivero", codigo: "AR-01", icon: "🗄️", bookable: false,
+    rect: rect(6.53, 18.92, 2.70, 2.43),
+    door: { side: "n", offset: 0, width: 1.0 },
+    desc: "Área de archivo muerto y almacenamiento documental.",
+  },
+  {
     id: "almacen-grande", nombre: "Almacén", codigo: "AL-01", icon: "📦", bookable: false,
-    rect: rect(9.75, 17.70, 6.70, 4.60),
-    door: { side: "n", offset: 0 },
+    rect: rect(7.88, 14.88, 7.41, 4.04),
+    door: { side: "n", offset: -1.2, width: 1.0 },
     desc: "Bodega general del edificio, entre la cocina y la oficina D.",
   },
   {
     id: "bano-d", nombre: "Baño Comunitario", codigo: "WC-04", icon: "🚻", bookable: false,
-    rect: rect(16.45, 20.60, 6.00, 1.40),
-    door: { side: "w", offset: 0 },
+    rect: rect(18.25, 15.29, 1.75, 3.63),
+    door: { side: "w", offset: 0, width: 0.8 },
     desc: "Servicio sanitario de uso común, junto a la Oficina D.",
   },
   {
     id: "almacen-chico", nombre: "Almacén", codigo: "AL-02", icon: "📦", bookable: false,
-    rect: rect(16.45, 22.00, 6.00, 2.00),
-    door: { side: "w", offset: 0 },
+    rect: rect(18.25, 18.92, 1.75, 2.29),
+    door: { side: "w", offset: 0, width: 0.8 },
     desc: "Bodega pequeña junto a la Oficina C.",
   },
   {
     id: "cochera", nombre: "Cochera", codigo: "PK-01", icon: "🚗", bookable: false,
-    rect: rect(5.15, 15.80, 4.60, 13.80), open: true,
+    rect: rect(6.53, 21.35, 4.99, 4.85), open: true,
     door: { side: "s", offset: 0 },
     desc: "Cochera techada con cajón asignado para visitas.",
   },
   {
     id: "recepcion", nombre: "Recepción", codigo: "RC-01", icon: "🛎️", bookable: false,
-    rect: rect(13.10, 22.30, 3.35, 7.30),
-    door: { side: "s", offset: 0 },
+    rect: rect(14.21, 21.35, 4.04, 4.85),
+    door: { side: "s", offset: -0.67, width: 1.0 },
     desc: "Recepción principal de acceso al edificio, junto a la Oficina C.",
   },
 ];
 
 /* ----------------------------------------------------------------------
-   Pasillos: en este plano casi todos los espacios comparten muro
-   directamente (sin huecos de pasillo entre ellos), así que no hace
-   falta ninguna franja de piso extra a modo de acento visual.
+   Pasillos: franjas de piso sin muros, para las zonas de circulación
+   que no son un "cuarto" propiamente (el corredor junto al Lobby y la
+   entrada techada de Acceso Principal).
    ---------------------------------------------------------------------- */
-const CORRIDORS = [];
+const CORRIDORS = [
+  rect(2.90, 5.86, 4.04, 2.09),
+  rect(0.00, 26.20, 20.00, 1.21),
+];

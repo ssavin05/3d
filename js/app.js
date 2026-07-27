@@ -70,11 +70,6 @@ function searchRooms(query) {
    ====================================================================== */
 const wallMat = new THREE.MeshStandardMaterial({ color: WALL_COLOR, roughness: 0.88, metalness: 0.02 });
 const doorMat = new THREE.MeshStandardMaterial({ color: DOOR_COLOR, roughness: 0.55, metalness: 0.08 });
-const glassDoorMat = new THREE.MeshStandardMaterial({
-  color: GLASS_DOOR_COLOR, roughness: 0.1, metalness: 0.05,
-  transparent: true, opacity: GLASS_DOOR_OPACITY,
-});
-const frostMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, roughness: 0.35 });
 const corridorMat = new THREE.MeshStandardMaterial({ color: CORRIDOR_COLOR, roughness: 1, metalness: 0 });
 
 /**
@@ -104,7 +99,6 @@ function buildRoomWalls(room) {
   }
 
   function addDoorDressing(cx, cz, horizontal) {
-    if (door?.glass) { addGlassSlidingDoor(cx, cz, horizontal); return; }
     const lintelGeo = horizontal
       ? new THREE.BoxGeometry(doorW, 0.16, t)
       : new THREE.BoxGeometry(t, 0.16, doorW);
@@ -118,53 +112,6 @@ function buildRoomWalls(room) {
     leaf.position.set(cx, leafH / 2, cz);
     if (!horizontal) leaf.rotation.y = Math.PI / 2;
     group.add(leaf);
-  }
-
-  /** Puerta corrediza de cristal: riel superior tipo "barn door", dos hojas
-   *  de vidrio esmerilado (con un rombo esmerilado grabado, tipo logo), un
-   *  mainel central y jaladeras verticales — como la puerta real de la
-   *  oficina de referencia. */
-  function addGlassSlidingDoor(cx, cz, horizontal) {
-    const railGeo = horizontal
-      ? new THREE.BoxGeometry(doorW * 1.1, 0.1, t * 1.4)
-      : new THREE.BoxGeometry(t * 1.4, 0.1, doorW * 1.1);
-    const rail = new THREE.Mesh(railGeo, doorMat);
-    rail.position.set(cx, h - 0.05, cz);
-    group.add(rail);
-
-    const leafH = h * 0.9;
-    const leafW = doorW * 0.49;
-    [-1, 1].forEach(side => {
-      const panelGeo = horizontal
-        ? new THREE.BoxGeometry(leafW, leafH, 0.045)
-        : new THREE.BoxGeometry(0.045, leafH, leafW);
-      const panel = new THREE.Mesh(panelGeo, glassDoorMat);
-      const off = side * (leafW / 2 + 0.012);
-      if (horizontal) panel.position.set(cx + off, leafH / 2, cz);
-      else panel.position.set(cx, leafH / 2, cz + off);
-      group.add(panel);
-
-      if (horizontal) {
-        const decal = new THREE.Mesh(new THREE.PlaneGeometry(leafW * 0.24, leafW * 0.24), frostMat);
-        decal.rotation.z = Math.PI / 4;
-        decal.position.set(cx + off, leafH * 0.56, cz + 0.024);
-        group.add(decal);
-      }
-
-      const handleGeo = new THREE.CylinderGeometry(0.014, 0.014, leafH * 0.3);
-      const handle = new THREE.Mesh(handleGeo, doorMat);
-      handle.rotation.z = Math.PI / 2;
-      if (horizontal) handle.position.set(cx + off, leafH * 0.52, cz + 0.035);
-      else handle.position.set(cx + 0.035, leafH * 0.52, cz + off);
-      group.add(handle);
-    });
-
-    const mullionGeo = horizontal
-      ? new THREE.BoxGeometry(0.035, leafH, t * 1.2)
-      : new THREE.BoxGeometry(t * 1.2, leafH, 0.035);
-    const mullion = new THREE.Mesh(mullionGeo, doorMat);
-    mullion.position.set(cx, leafH / 2, cz);
-    group.add(mullion);
   }
 
   function buildSide(side) {
@@ -728,7 +675,7 @@ floor.position.y = -0.05;
 scene.add(floor);
 
 /* ---------- contorno del edificio ---------- */
-const bOverall = rect(-0.35, -0.35, 22.45 + 0.7, 29.60 + 0.7);
+const bOverall = rect(-0.35, -0.35, 20.00 + 0.7, 27.41 + 0.7);
 const outlineGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(bOverall.w + 0.6, 0.02, bOverall.d + 0.6));
 const outline = new THREE.LineSegments(outlineGeo, new THREE.LineBasicMaterial({ color: 0x5fd4ff, transparent: true, opacity: 0.35 }));
 outline.position.set(bOverall.x, 0, bOverall.z);

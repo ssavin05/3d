@@ -10,8 +10,9 @@
    que aquí no hace falta convertir nada. */
 const SCALE = 1;
 /* Centro del edificio en metros (mitad del ancho total x mitad del
-   fondo total). Ver rooms-data.js para las coordenadas de cada espacio. */
-const CENTER_X = 11.225, CENTER_Y = 14.80;
+   fondo total: el edificio mide 20.00 x 27.41 m). Ver rooms-data.js
+   para las coordenadas de cada espacio. */
+const CENTER_X = 10.00, CENTER_Y = 13.705;
 
 /* Bloques horarios reservables (2 h cada uno) */
 const HOURS = ["09:00-11:00", "11:00-13:00", "13:00-15:00", "15:00-17:00", "17:00-19:00", "19:00-21:00"];
@@ -57,15 +58,15 @@ const AMENITY_DEFS = {
   cafe:            { ico: "☕", label: "Servicio de café" },
 };
 
-/* ---------- arquitectura: muros, puertas y pasillos ---------- */
-const WALL_HEIGHT = 1.7;     // altura de muro divisorio (envuelve el volumen de estado)
+/* ---------- arquitectura: muros, puertas y pasillos ----------
+   Una sola altura de muro para todo el edificio (sin variaciones por
+   sala) para mantener el modelo simple, sin detalles de más. */
+const WALL_HEIGHT = 2.6;
 const WALL_THICKNESS = 0.14;
 const WALL_COLOR = 0xdce3ec;
-const CURB_HEIGHT = 0.32;    // altura reducida para espacios "abiertos" (patio, estacionamiento)
-const DOOR_WIDTH = 1.15;
+const CURB_HEIGHT = 0.32;    // altura reducida para espacios "abiertos" (patio, cochera)
+const DOOR_WIDTH = 1.0;
 const DOOR_COLOR = 0x8a6a45;
-const GLASS_DOOR_COLOR = 0xbfe0ea;
-const GLASS_DOOR_OPACITY = 0.35;
 const CORRIDOR_COLOR = 0x1b2634; // tono del piso de pasillo, distinto del blueprint general
 
 /* Duración y easing de las transiciones de cámara */
