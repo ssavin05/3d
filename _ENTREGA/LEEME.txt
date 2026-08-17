@@ -1,0 +1,21 @@
+SMART HUB V1 — PAQUETE COMPLETO 2.6.1
+
+Este ZIP contiene TODO el proyecto.
+
+Cambio principal:
+- Mapa 3D visual reconstruido para no verse como una masa verde plana.
+- Cuerpo oscuro + tapa de estado por espacio.
+- Sólo OF-A/B/C/D se consideran reservables visualmente.
+- Cámara más isométrica y etiquetas más grandes.
+- Horario 08:00–19:00 todos los días (migración 14).
+
+Archivos clave cambiados:
+- js/three/edificio.js
+- js/three/escena.js
+- js/views/mapa.js
+- js/core/config.js
+- sw.js
+- package.json
+
+Supabase:
+- Si todavía no aplicaste el horario nuevo, ejecuta supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql

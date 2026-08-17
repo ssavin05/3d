@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Smart Hub">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0a0f18"/>
+  <g fill="none" stroke="url(#g)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M32 10 53 21v22L32 54 11 43V21z"/>
+    <path d="M11 21l21 11 21-11M32 32v22" opacity=".65"/>
+  </g>
+  <path d="M25 28.5l5.4-2.8 5.4 2.8-5.4 2.8z" fill="#38bdf8"/>
+  <path d="M35 36l4.4-2.3 4.4 2.3-4.4 2.3z" fill="#6366f1"/>
+</svg>

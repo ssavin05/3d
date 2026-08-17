@@ -1,0 +1,53 @@
+CÓMO HACER QUE EL MAPA SEA EXACTAMENTE TU PLANO
+================================================
+
+La geometría de js/data/planta.js está reconstruida a partir de las
+cotas escritas en tu plano (5.15, 5.35, 4.25, 17.50, 2.70, 1.80, 2.20,
+3.20, 6.90, 4.60...). Es fiel a esas medidas, pero sigue siendo una
+reconstrucción: los muros curvos, los grosores y los detalles que el
+dibujo tiene y las cotas no dicen, no están.
+
+Para que el mapa sea EL plano y no un parecido:
+
+  1. Abre tu plano y recórtalo JUSTO por los muros exteriores del
+     edificio (sin la calle, sin los coches, sin los márgenes ni las
+     cotas de fuera).
+  2. Guárdalo aquí como:  assets/plano.png
+     (también vale .jpg o .webp, cambiando el nombre en
+      Admin → Qué se ve en la app → Plano arquitectónico)
+  3. Recarga la app.
+
+El mapa dibujará tu plano a escala 1:1 sobre el suelo y pondrá los
+bloques de color semitransparentes encima, marcando qué se puede
+reservar y cómo está de ocupado.
+
+Por qué hace falta el recorte exacto: la imagen se estira a la
+envolvente del edificio (18.70 × 29.95 m). Si dejas márgenes, el plano
+sale encogido y descuadrado respecto a los bloques.
+
+Si prefieres ver sólo los bloques de color, apaga "Usar el plano de
+fondo" en el mismo panel.
+
+
+──────────────────────────────────────────────
+MAQUETA 3D DEL EDIFICIO (opcional)
+──────────────────────────────────────────────
+
+Si en vez de (o además de) la imagen del plano tienes una maqueta 3D
+en GLB o GLTF —generada en Meshy, Blender, SketchUp, lo que sea—:
+
+  1. Guárdala aquí como:  assets/edificio.glb
+  2. Recarga la app.
+
+Aparece encima del plano, se escala sola para encajar en la parcela
+(18.70 × 29.95 m) y los bloques de color se vuelven translúcidos para
+que sigas pudiendo tocar cada oficina sin que tapen la maqueta.
+
+Funciona en los dos estilos de mapa, plano y realista.
+
+Para cambiar la ruta o quitarla:
+  Admin → Qué se ve en la app → Modelo 3D del edificio
+
+Nota sobre Meshy: la descarga desde meshy.ai exige tu sesión, así que
+el archivo tienes que bajarlo tú desde tu panel (botón Download → GLB)
+y copiarlo aquí.

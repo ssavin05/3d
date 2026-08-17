@@ -1,0 +1,20 @@
+FOTOS INTEGRADAS EN EL PROYECTO
+
+Estas imágenes forman parte del sitio. No dependen de carpetas de Windows,
+Descargas, file:// ni rutas C:\Users\... .
+
+Asignación:
+  OF-A  -> assets/fotos/oficina-a/
+  OF-B  -> assets/fotos/oficina-b/
+  OF-C  -> assets/fotos/oficina-c/
+  OF-D  -> assets/fotos/oficina-d/
+  PT-01 -> assets/fotos/patio/
+  RC-01 -> assets/fotos/recepcion/
+
+La app construye las URLs desde js/data/medios-locales.js usando import.meta.url.
+Por eso funciona correctamente si el proyecto se publica en la raíz o dentro
+de un subdirectorio, por ejemplo https://usuario.github.io/repositorio/.
+
+Para estos seis espacios, las fotos incluidas en el proyecto tienen prioridad
+sobre enlaces antiguos de Supabase, evitando que una URL remota rota deje la
+tarjeta sin imagen.

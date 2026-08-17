@@ -1,0 +1,994 @@
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/OWNER_ACTIONS.md /mnt/data/smarthub_map_edit/OWNER_ACTIONS.md
+--- /mnt/data/smarthub_250_original/OWNER_ACTIONS.md	2026-08-14 21:06:08.000000000 +0000
++++ /mnt/data/smarthub_map_edit/OWNER_ACTIONS.md	2026-08-15 05:20:17.471621094 +0000
+@@ -172,3 +172,10 @@
+ 8. Sólo entonces empaquetar Android/iOS y mandar a tiendas.
+ 
+ Nada de Stripe es requisito de esta V1.
++
++
++## Actualización 2.6.0 — mapa y horario
++
++- [ ] Aplicar `supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql` en producción.
++- [ ] Verificar que los 7 días estén abiertos de 08:00 a 19:00.
++- [ ] Verificar el mapa: verde = 11/11 libres, ámbar = 1–10/11 libres, rojo = 0/11 o espacio no reservable.
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/README.md /mnt/data/smarthub_map_edit/README.md
+--- /mnt/data/smarthub_250_original/README.md	2026-08-14 21:08:55.000000000 +0000
++++ /mnt/data/smarthub_map_edit/README.md	2026-08-15 05:20:17.471399096 +0000
+@@ -1,5 +1,8 @@
+ # Smart Hub — Sistema de reservas con mapa 3D
+ 
++> **Mapa de reservas 2.6.0:** bloques 3D cerrados. Rojo = no disponible/no reservable, ámbar = disponibilidad parcial, verde = todo libre. Horario: todos los días, 08:00 a 19:00, en bloques de 1 hora.
++
++
+ Aplicación web progresiva (PWA) para reservar oficinas, con mapa 3D
+ interactivo del edificio, disponibilidad en tiempo real, pagos en línea y
+ panel de administración.
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/RELEASE_CHECKLIST.md /mnt/data/smarthub_map_edit/RELEASE_CHECKLIST.md
+--- /mnt/data/smarthub_250_original/RELEASE_CHECKLIST.md	2026-08-14 21:06:08.000000000 +0000
++++ /mnt/data/smarthub_map_edit/RELEASE_CHECKLIST.md	2026-08-15 05:20:17.471523159 +0000
+@@ -47,6 +47,7 @@
+       incluidos el jardín, el patio, el almacén, la cochera y la recepción
+ - [ ] 🚨 Migración 12 aplicada — franjas/horarios y zona horaria quedan cerrados también en API
+ - [ ] 🚨 Migración 13 aplicada — la promoción de ejemplo `BIENVENIDO` no queda activa
++- [ ] 🚨 Migración 14 aplicada — horario 08:00–19:00 todos los días y semáforo del mapa coherente
+ - [ ] Comprobado: `select pg_get_constraintdef(oid) from pg_constraint
+       where conname='uq_pagos_proveedor'` dice `UNIQUE (proveedor_id)`,
+       **sin ningún WHERE**
+@@ -168,7 +169,7 @@
+ - [ ] Que el correo de confirmación diga también la hora correcta
+ - [ ] Reservar desde un teléfono con otra zona horaria puesta y ver que
+       llega la hora del edificio
+-- [ ] Comprobar la disponibilidad del **último bloque del día** (19:00–21:00)
++- [ ] Comprobar la disponibilidad del **último bloque del día** (18:00–19:00)
+ 
+ ---
+ 
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/docs/CAMBIOS-2.6.0-MAPA-RESERVAS.md /mnt/data/smarthub_map_edit/docs/CAMBIOS-2.6.0-MAPA-RESERVAS.md
+--- /mnt/data/smarthub_250_original/docs/CAMBIOS-2.6.0-MAPA-RESERVAS.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/smarthub_map_edit/docs/CAMBIOS-2.6.0-MAPA-RESERVAS.md	2026-08-15 05:23:11.474148891 +0000
+@@ -0,0 +1,27 @@
++# Smart Hub 2.6.0 — mapa 3D de reservas
++
++## Mapa
++
++- Los espacios se muestran como **bloques 3D cerrados** sobre una rejilla oscura.
++- El bloque completo funciona como semáforo; ya no se usa un punto pequeño.
++- **Verde:** todos los horarios que aún pueden reservarse ese día están libres.
++- **Ámbar:** quedan algunos horarios, pero no todos.
++- **Rojo:** no quedan horarios o el espacio no es reservable.
++- **Gris:** la consulta de disponibilidad todavía no respondió.
++- Los nombres quedan visibles en el mapa general para que funcione como plano de selección.
++- Las cuatro oficinas rentables siguen siendo OF-A, OF-B, OF-C y OF-D.
++
++## Horario
++
++- Todos los días, incluidos domingos.
++- 08:00 a 19:00, zona `America/Tijuana`.
++- 11 bloques de una hora: 08–09, 09–10, …, 18–19.
++- Frontend, modo local, asistente y Supabase usan la misma regla.
++
++## Producción
++
++Aplicar después de las migraciones 01–13:
++
++`supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql`
++
++La migración actualiza los horarios existentes, crea los días generales que falten y sustituye las funciones de validación/disponibilidad con la nueva rejilla.
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/ai/busqueda.js /mnt/data/smarthub_map_edit/js/ai/busqueda.js
+--- /mnt/data/smarthub_250_original/js/ai/busqueda.js	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/ai/busqueda.js	2026-08-15 05:18:22.577896500 +0000
+@@ -42,9 +42,9 @@
+ const DIAS_SEMANA = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
+ 
+ const FRANJAS = {
+-  manana: ["09:00-11:00", "11:00-13:00"],
+-  tarde: ["13:00-15:00", "15:00-17:00", "17:00-19:00"],
+-  noche: ["17:00-19:00", "19:00-21:00"],
++  manana: ["08:00-09:00", "09:00-10:00", "10:00-11:00", "11:00-12:00"],
++  tarde: ["12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"],
++  noche: ["17:00-18:00", "18:00-19:00"],
+ };
+ 
+ /**
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/core/config.js /mnt/data/smarthub_map_edit/js/core/config.js
+--- /mnt/data/smarthub_250_original/js/core/config.js	2026-08-14 21:04:02.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/core/config.js	2026-08-15 05:20:17.471245268 +0000
+@@ -63,7 +63,7 @@
+ export const APP = {
+   name: pick("app.name", "Smart Hub"),
+   shortName: pick("app.shortName", "Smart Hub"),
+-  version: pick("app.version", "2.5.0"),
++  version: pick("app.version", "2.6.0"),
+   /* Marca de pre-lanzamiento. Al ejecutar limpieza-lanzamiento-aplicar.sql hay
+      que cambiar esta fecha: cada equipo que abra la app comparará la
+      suya y, si no coincide, purgará la disponibilidad guardada. Sin
+@@ -195,13 +195,16 @@
+   /* Reglas de dinero/venta: NO son overrides de interfaz. Tienen que
+      coincidir con PostgreSQL; cambiarlas sólo en el navegador permitiría
+      enseñar una política que el servidor no aplica. */
++  // Horario comercial unificado: TODOS los días, de 08:00 a 19:00.
++  // Cada bloque dura 1 hora; el último termina exactamente a las 19:00.
+   bloques: Object.freeze([
+-    "09:00-11:00", "11:00-13:00", "13:00-15:00",
+-    "15:00-17:00", "17:00-19:00", "19:00-21:00",
++    "08:00-09:00", "09:00-10:00", "10:00-11:00", "11:00-12:00",
++    "12:00-13:00", "13:00-14:00", "14:00-15:00", "15:00-16:00",
++    "16:00-17:00", "17:00-18:00", "18:00-19:00",
+   ]),
+   /* Sólo controla cuántos días dibuja el selector rápido. */
+   diasVisibles: pick("booking.diasVisibles", 14),
+-  /* Reglas autoritativas V1, espejadas en seguridad.sql/migración 12. */
++  /* Reglas autoritativas V1, espejadas en seguridad.sql/migración 14. */
+   diasMaximos: 90,
+   horasCancelacionGratis: 24,
+   penalizacionTardia: 0.5,
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/core/i18n.js /mnt/data/smarthub_map_edit/js/core/i18n.js
+--- /mnt/data/smarthub_250_original/js/core/i18n.js	2026-08-14 20:54:15.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/core/i18n.js	2026-08-15 05:18:22.582526109 +0000
+@@ -307,10 +307,11 @@
+   "mapa.buscar": "Buscar oficina o sala…",
+   "mapa.sinCoincidencias": "Sin coincidencias",
+   "mapa.rutaLista": "Ruta desde la recepción",
+-  "mapa.muchos": "Muchos horarios",
+-  "mapa.pocos": "Pocos",
+-  "mapa.ninguno": "Sin disponibilidad",
++  "mapa.muchos": "Todo libre",
++  "mapa.pocos": "Disponibilidad parcial",
++  "mapa.ninguno": "No disponible",
+   "mapa.noReservable": "No reservable",
++  "mapa.sinDatos": "Consultando",
+   "mapa.acercar": "Acercar",
+   "mapa.alejar": "Alejar",
+   "mapa.girar": "Girar",
+@@ -626,10 +627,11 @@
+   "mapa.buscar": "Search office or room…",
+   "mapa.sinCoincidencias": "No matches",
+   "mapa.rutaLista": "Route from reception",
+-  "mapa.muchos": "Many slots",
+-  "mapa.pocos": "Few",
+-  "mapa.ninguno": "Fully booked",
++  "mapa.muchos": "Fully available",
++  "mapa.pocos": "Partially available",
++  "mapa.ninguno": "Unavailable",
+   "mapa.noReservable": "Not bookable",
++  "mapa.sinDatos": "Checking",
+   "mapa.acercar": "Zoom in",
+   "mapa.alejar": "Zoom out",
+   "mapa.girar": "Rotate",
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/three/edificio.js /mnt/data/smarthub_map_edit/js/three/edificio.js
+--- /mnt/data/smarthub_250_original/js/three/edificio.js	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/three/edificio.js	2026-08-15 05:21:03.192272410 +0000
+@@ -22,9 +22,12 @@
+ };
+ 
+ export const COLOR_SEMAFORO = {
+-  verde: 0x4ade80,
+-  amarillo: 0xffb454,
+-  rojo: 0xff6b6b,
++  // Mapa de reservas: verde = todo libre, ámbar = parcialmente libre,
++  // rojo = sin disponibilidad / no reservable. Gris = consulta pendiente.
++  verde: 0x22c55e,
++  amarillo: 0xf59e0b,
++  rojo: 0xef4444,
++  desconocido: 0x64748b,
+ };
+ 
+ const COLOR_MUDO = 0x1d2634;
+@@ -68,13 +71,24 @@
+ export function crearVolumen(espacio, centro, { plano = true } = {}) {
+   const r = rectDe(espacio, centro);
+   const reservable = espacio.reservable && espacio.estado !== "inactiva";
+-  const altura = Number(espacio.altura) || (reservable ? 1.35 : espacio.abierto ? ALTURA_BORDILLO : 0.9);
++  // En el mapa de bloques la altura es VISUAL, no un dato físico de la
++  // base. Así podemos darle volumen al mapa sin alterar el plano ni las
++  // migraciones de geometría.
++  const alturaMapa = {
++    oficina: 1.05, sala_juntas: 0.95, coworking: 0.78,
++    comun: 0.68, servicio: 0.72, estacionamiento: 0.52,
++  };
++  const altura = plano
++    ? (espacio.abierto ? 0.30 : (alturaMapa[espacio.tipo] ?? 0.72))
++    : (Number(espacio.altura) || (reservable ? 1.35 : espacio.abierto ? ALTURA_BORDILLO : 0.9));
+ 
+   // En modo plano cada cuarto es un bloque de color liso, bajito, como
+   // en un plano arquitectónico coloreado. Sin brillos ni transparencias:
+   // lo que importa es distinguir de un vistazo qué es cada cosa.
++  // El color definitivo lo aplica `aplicarDisponibilidad()` al cargar el
++  // semáforo. De entrada dejamos gris para no mentir mientras consulta.
+   const color = plano
+-    ? (espacio.color ?? (reservable ? 0x2f6fed : COLOR_MUDO))
++    ? COLOR_SEMAFORO.desconocido
+     : (reservable ? 0x123249 : COLOR_MUDO);
+ 
+   const material = plano
+@@ -100,8 +114,8 @@
+   const bordes = new THREE.LineSegments(
+     new THREE.EdgesGeometry(malla.geometry),
+     new THREE.LineBasicMaterial({
+-      color: plano ? 0x0b1220 : (reservable ? 0x5fd4ff : 0x36485f),
+-      transparent: true, opacity: plano ? 0.55 : 0.5,
++      color: plano ? 0x8fb8d8 : (reservable ? 0x5fd4ff : 0x36485f),
++      transparent: true, opacity: plano ? 0.72 : 0.5,
+     })
+   );
+   malla.add(bordes);
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/three/escena.js /mnt/data/smarthub_map_edit/js/three/escena.js
+--- /mnt/data/smarthub_250_original/js/three/escena.js	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/three/escena.js	2026-08-15 05:22:34.763517983 +0000
+@@ -119,7 +119,11 @@
+   /* ---------------- suelo exterior ---------------- */
+   const sueloGeo = new THREE.PlaneGeometry(180, 180);
+   const suelo = new THREE.Mesh(sueloGeo, PLANO
+-    ? new THREE.MeshBasicMaterial({ color: 0x0b1220 })
++    ? new THREE.MeshBasicMaterial({
++        map: materiales.texturaBlueprint(perfil.nivel === "bajo" ? 256 : 512, {
++          fondo: "#08111f", linea: "#122942", acento: "#1e4161",
++        }),
++      })
+     : materiales.materialPBR({
+         mapa: materiales.texturaBlueprint(perfil.nivel === "bajo" ? 256 : 512), rugosidad: 1,
+       }));
+@@ -208,30 +212,19 @@
+     const volumen = edificio.crearVolumen(espacio, centro, { plano: PLANO });
+     volumen.userData.espacio = espacio;
+ 
+-    // En el plano, el color del bloque dice QUÉ es el cuarto (oficina,
+-    // sala, servicio…) y un punto encima dice CÓMO está de ocupado. Si
+-    // el color hiciera las dos cosas, el plano dejaría de leerse: por la
+-    // noche, con todos los horarios pasados, salía entero en rojo.
+-    if (PLANO && espacio.reservable) {
+-      const punto = new THREE.Mesh(
+-        new THREE.CircleGeometry(0.42, 20),
+-        new THREE.MeshBasicMaterial({ color: edificio.COLOR_SEMAFORO.verde })
+-      );
+-      punto.rotation.x = -Math.PI / 2;
+-      punto.position.set(0, volumen.userData.alturaBase / 2 + 0.02, 0);
+-      volumen.add(punto);
+-      volumen.userData.semaforo = punto;
+-    }
++    // En el mapa de reservas el BLOQUE COMPLETO es el semáforo.
++    // Nada de puntitos: verde = todo libre, ámbar = parcial, rojo = no
++    // disponible/no reservable. Esto se entiende de un vistazo en móvil.
+     grupoEdificio.add(volumen);
+     volumenes.push(volumen);
+     volumenPorId.set(String(espacio.id), volumen);
+ 
+-    const etiqueta = edificio.crearEtiqueta(espacio.nombre, { escala: espacio.reservable ? 1 : 0.78 });
+-    etiqueta.position.set(volumen.position.x, volumen.userData.alturaBase + 0.85, volumen.position.z);
++    const etiqueta = edificio.crearEtiqueta(espacio.nombre, { escala: espacio.reservable ? 0.92 : 0.68 });
++    etiqueta.position.set(volumen.position.x, volumen.userData.alturaBase + 0.24, volumen.position.z);
+     // En un plano, los nombres son la mitad de la información: se dejan
+     // puestos en las salas que se pueden reservar en vez de esconderlos
+     // hasta que pases el dedo por encima.
+-    etiqueta.visible = PLANO && espacio.reservable;
++    etiqueta.visible = PLANO;
+     grupoEdificio.add(etiqueta);
+     etiquetas.set(String(espacio.id), etiqueta);
+ 
+@@ -511,9 +504,10 @@
+     );
+     volarA(pos, volumen.position.clone(), dur);
+ 
+-    // Muestra mobiliario y etiqueta de la sala enfocada
++    // En modo bloques dejamos TODOS los nombres puestos: es un mapa, no
++    // una maqueta. En modo realista sólo se enseña el nombre enfocado.
+     for (const [id, m] of mobiliarios) m.visible = id === seleccionado;
+-    for (const [id, e] of etiquetas) e.visible = id === seleccionado;
++    for (const [id, e] of etiquetas) e.visible = PLANO || id === seleccionado;
+ 
+     // Abre su puerta
+     for (const p of puertas) vida.abrirPuerta(p, false);
+@@ -528,7 +522,7 @@
+   function vistaGeneral({ dur = 800 } = {}) {
+     seleccionado = null;
+     for (const m of mobiliarios.values()) m.visible = false;
+-    for (const e of etiquetas.values()) e.visible = false;
++    for (const e of etiquetas.values()) e.visible = PLANO;
+     for (const p of puertas) vida.abrirPuerta(p, false);
+     focoSeleccion.intensity = 0;
+     const dist = distanciaBase / zoom;
+@@ -542,27 +536,36 @@
+     invalidar();
+     for (const volumen of volumenes) {
+       const espacio = volumen.userData.espacio;
+-      if (!volumen.userData.reservable) continue;
++      let color = edificio.COLOR_SEMAFORO.desconocido;
+ 
+-      let color;
+-      const forzado = edificio.COLOR_ESTADO[espacio.estado];
+-      if (forzado != null) {
+-        color = forzado;
++      // El cliente pidió el mapa como semáforo de bloques cerrados:
++      //   rojo  = no se puede reservar / todo ocupado
++      //   verde = todos los horarios están libres
++      //   ámbar = quedan algunos horarios
++      // Cuando el servidor todavía no contestó usamos gris para no
++      // anunciar una disponibilidad que no conocemos.
++      if (!volumen.userData.reservable || espacio.estado !== "disponible") {
++        color = edificio.COLOR_SEMAFORO.rojo;
+       } else {
+         const d = mapa[String(espacio.id)];
+-        if (!d || d.total === 0) color = edificio.COLOR_SEMAFORO.verde;
+-        else if (d.libres === 0) color = edificio.COLOR_SEMAFORO.rojo;
+-        else if (d.libres / d.total <= 0.34) color = edificio.COLOR_SEMAFORO.amarillo;
+-        else color = edificio.COLOR_SEMAFORO.verde;
++        if (!d || !Number.isFinite(Number(d.total))) {
++          color = edificio.COLOR_SEMAFORO.desconocido;
++        } else if (Number(d.total) <= 0 || Number(d.libres) <= 0) {
++          color = edificio.COLOR_SEMAFORO.rojo;
++        } else if (Number(d.libres) >= Number(d.total)) {
++          color = edificio.COLOR_SEMAFORO.verde;
++        } else {
++          color = edificio.COLOR_SEMAFORO.amarillo;
++        }
+       }
+-      if (volumen.userData.semaforo) {
+-        volumen.userData.semaforo.material.color.setHex(color);
+-      } else {
+-        volumen.material.color.setHex(color);
+-        volumen.material.emissive?.setHex(color);
+-        volumen.material.emissiveIntensity = 0.12;
+-        volumen.userData.colorBase = volumen.material.color.clone();
+-        volumen.userData.bordes.material.color.setHex(color);
++
++      volumen.material.color.setHex(color);
++      volumen.material.emissive?.setHex(color);
++      volumen.material.emissiveIntensity = PLANO ? 0 : 0.12;
++      volumen.userData.colorBase = volumen.material.color.clone();
++      volumen.userData.bordes?.material?.color?.setHex(color);
++      if (volumen.userData.bordes?.material) {
++        volumen.userData.bordes.material.opacity = PLANO ? 0.9 : 0.5;
+       }
+     }
+   }
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/three/minimapa.js /mnt/data/smarthub_map_edit/js/three/minimapa.js
+--- /mnt/data/smarthub_250_original/js/three/minimapa.js	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/three/minimapa.js	2026-08-15 05:22:34.763666593 +0000
+@@ -10,12 +10,12 @@
+ const COLOR = {
+   fondo: "rgba(8,14,22,0.86)",
+   borde: "rgba(95,212,255,0.28)",
+-  mudo: "#243244",
++  mudo: "#64748b",
+   mudoBorde: "#33475f",
+   texto: "#93a7bb",
+-  verde: "#4ade80",
+-  amarillo: "#ffb454",
+-  rojo: "#ff6b6b",
++  verde: "#22c55e",
++  amarillo: "#f59e0b",
++  rojo: "#ef4444",
+   morado: "#9b8cff",
+   gris: "#6b7d90",
+   seleccion: "#5fd4ff",
+@@ -55,15 +55,12 @@
+   }
+ 
+   function colorDe(espacio) {
+-    if (!espacio.reservable) return COLOR.mudo;
+-    if (espacio.estado === "proximamente") return COLOR.morado;
+-    if (espacio.estado === "mantenimiento" || espacio.estado === "inactiva") return COLOR.gris;
+-    if (espacio.estado === "reservada") return COLOR.rojo;
++    if (!espacio.reservable || espacio.estado !== "disponible") return COLOR.rojo;
+     const d = disponibilidad[String(espacio.id)];
+-    if (!d || d.total === 0) return COLOR.verde;
+-    if (d.libres === 0) return COLOR.rojo;
+-    if (d.libres / d.total <= 0.34) return COLOR.amarillo;
+-    return COLOR.verde;
++    if (!d || !Number.isFinite(Number(d.total))) return COLOR.mudo;
++    if (Number(d.total) <= 0 || Number(d.libres) <= 0) return COLOR.rojo;
++    if (Number(d.libres) >= Number(d.total)) return COLOR.verde;
++    return COLOR.amarillo;
+   }
+ 
+   function dibujar() {
+@@ -88,7 +85,7 @@
+       const activo = String(espacio.id) === seleccionado;
+ 
+       ctx.fillStyle = colorDe(espacio);
+-      ctx.globalAlpha = espacio.reservable ? (activo ? 1 : 0.82) : 0.5;
++      ctx.globalAlpha = activo ? 1 : 0.88;
+       ctx.fillRect(px, py, pw - 0.6, ph - 0.6);
+       ctx.globalAlpha = 1;
+ 
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/views/componentes.js /mnt/data/smarthub_map_edit/js/views/componentes.js
+--- /mnt/data/smarthub_250_original/js/views/componentes.js	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/views/componentes.js	2026-08-15 05:19:22.776322685 +0000
+@@ -24,11 +24,14 @@
+ /** Clase de color según cuántos bloques quedan libres. */
+ export function nivelDisponibilidad(libres, total) {
+   if (!total || libres <= 0) return "taken";
+-  if (libres / total <= 0.34) return "warm";
+-  return "ok";
++  if (libres >= total) return "ok";
++  return "warm";
+ }
+ 
+ export function insigniaEstado(espacio, disponibilidad = null) {
++  if (!espacio?.reservable) {
++    return html`<span class="chip chip-taken"><i class="punto punto-taken"></i>${t("espacio.noReservable")}</span>`;
++  }
+   if (espacio.estado && espacio.estado !== "disponible") {
+     const clase = { reservada: "taken", mantenimiento: "neutro", proximamente: "purple", inactiva: "neutro" }[espacio.estado] || "neutro";
+     return html`<span class="chip chip-${raw(clase)}"><i class="punto punto-${raw(clase)}"></i>${ETIQUETA_ESTADO[espacio.estado]?.() || espacio.estado}</span>`;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/js/views/mapa.js /mnt/data/smarthub_map_edit/js/views/mapa.js
+--- /mnt/data/smarthub_250_original/js/views/mapa.js	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/views/mapa.js	2026-08-15 05:18:22.582203982 +0000
+@@ -70,8 +70,7 @@
+         <span><i class="punto punto-ok"></i>${t("mapa.muchos")}</span>
+         <span><i class="punto punto-warm"></i>${t("mapa.pocos")}</span>
+         <span><i class="punto punto-taken"></i>${t("mapa.ninguno")}</span>
+-        <span><i class="punto punto-purple"></i>${t("espacio.proximamente")}</span>
+-        <span><i class="punto punto-neutro"></i>${t("mapa.noReservable")}</span>
++        <span><i class="punto punto-neutro"></i>${t("mapa.sinDatos")}</span>
+       </div>
+ 
+       <div class="mapa-tip" id="mapa-tip" aria-hidden="true"></div>
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/package.json /mnt/data/smarthub_map_edit/package.json
+--- /mnt/data/smarthub_250_original/package.json	2026-08-14 20:29:12.000000000 +0000
++++ /mnt/data/smarthub_map_edit/package.json	2026-08-15 05:18:22.582613028 +0000
+@@ -1,6 +1,6 @@
+ {
+   "name": "smart-hub",
+-  "version": "2.5.0",
++  "version": "2.6.0",
+   "private": true,
+   "description": "Smart Hub — reservas de espacios con mapa 3D. App estática (ES modules, sin build) sobre Supabase.",
+   "type": "module",
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/supabase/functions/asistente/index.ts /mnt/data/smarthub_map_edit/supabase/functions/asistente/index.ts
+--- /mnt/data/smarthub_250_original/supabase/functions/asistente/index.ts	2026-08-14 20:32:20.000000000 +0000
++++ /mnt/data/smarthub_map_edit/supabase/functions/asistente/index.ts	2026-08-15 05:18:22.578021825 +0000
+@@ -53,7 +53,7 @@
+ - Si no encuentras algo, dilo con claridad y ofrece alternativas concretas.
+ - Sé breve: dos o tres frases más una lista corta cuando aplique.
+ - Precios en pesos mexicanos, sin IVA (se agrega al reservar).
+-- Bloques reservables de 2 horas, de 9:00 a 21:00, de lunes a sábado.
++- Bloques reservables de 1 hora, de 08:00 a 19:00, todos los días.
+ - Cancelación: gratis con 24 h de anticipación; después se retiene el 50 %.
+ - Método de pago público de V1: Clip (tarjeta en la página segura de Clip). No prometas Stripe, PayPal, Mercado Pago, carteras ni transferencia si no están habilitados.
+ - No pidas ni repitas datos de tarjetas. Para pagar, dirige a la persona al flujo de reserva de la app.`;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/supabase/migracion-12-franjas-y-zona-horaria.sql /mnt/data/smarthub_map_edit/supabase/migracion-12-franjas-y-zona-horaria.sql
+--- /mnt/data/smarthub_250_original/supabase/migracion-12-franjas-y-zona-horaria.sql	2026-08-14 21:04:42.000000000 +0000
++++ /mnt/data/smarthub_map_edit/supabase/migracion-12-franjas-y-zona-horaria.sql	2026-08-15 05:22:34.764020377 +0000
+@@ -2,10 +2,10 @@
+ -- migracion-12-franjas-y-zona-horaria.sql
+ --
+ -- Cierra dos huecos de negocio que la interfaz ocultaba pero la API no:
+---   1) disponibilidad_dia/mapa construían 09:00 como hora de la sesión
++--   1) disponibilidad_dia/mapa construían la hora local como hora de la sesión
+ --      de PostgreSQL, no como hora de la organización;
+ --   2) crear_reserva aceptaba cualquier rango de 30 min a 24 h, incluso
+---      domingo/cerrado, aunque V1 vende sólo las seis franjas de 2 h.
++--      fuera de horario, aunque V1 vende franjas de 1 h entre 08:00 y 19:00.
+ --
+ -- Resultado: navegador, RPC y calendario usan la MISMA regla en la zona
+ -- horaria de la organización. Falta de horario = cerrado (fail closed).
+@@ -46,8 +46,9 @@
+ 
+   v_bloque := to_char(v_ini_local, 'HH24:MI') || '-' || to_char(v_fin_local, 'HH24:MI');
+   if not (v_bloque = any(array[
+-    '09:00-11:00','11:00-13:00','13:00-15:00',
+-    '15:00-17:00','17:00-19:00','19:00-21:00'
++    '08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00',
++    '12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00',
++    '16:00-17:00','17:00-18:00','18:00-19:00'
+   ]::text[])) then
+     return false;
+   end if;
+@@ -145,7 +146,7 @@
+ -- conexión SQL (que normalmente es UTC en la nube).
+ create or replace function public.disponibilidad_dia(
+   p_espacio uuid, p_fecha date,
+-  p_bloques text[] default array['09:00-11:00','11:00-13:00','13:00-15:00','15:00-17:00','17:00-19:00','19:00-21:00']
++  p_bloques text[] default array['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00','16:00-17:00','17:00-18:00','18:00-19:00']
+ ) returns table (bloque text, libre boolean)
+ language plpgsql stable set search_path = public as $$
+ declare
+@@ -165,7 +166,7 @@
+     begin
+       ini := (p_fecha + split_part(b, '-', 1)::time) at time zone v_zona;
+       fin := (p_fecha + split_part(b, '-', 2)::time) at time zone v_zona;
+-      libre := public.esta_disponible(p_espacio, ini, fin);
++      libre := fin > now() and public.esta_disponible(p_espacio, ini, fin);
+     exception when others then
+       libre := false;
+     end;
+@@ -181,7 +182,7 @@
+     select zona_horaria from public.organizaciones where id = p_organizacion
+   ),
+   bloques as (
+-    select unnest(array['09:00-11:00','11:00-13:00','13:00-15:00','15:00-17:00','17:00-19:00','19:00-21:00']) as b
++    select unnest(array['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00','16:00-17:00','17:00-18:00','18:00-19:00']) as b
+   ),
+   reservables as (
+     select id from public.espacios
+@@ -189,13 +190,16 @@
+   )
+   select e.id,
+          count(*) filter (
+-           where public.esta_disponible(
++           where ((p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria) > now()
++             and public.esta_disponible(
+              e.id,
+              (p_fecha + split_part(bl.b,'-',1)::time) at time zone cfg.zona_horaria,
+              (p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria
+            )
+          )::int as libres,
+-         count(*)::int as total
++         count(*) filter (
++           where ((p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria) > now()
++         )::int as total
+     from reservables e cross join bloques bl cross join cfg
+    group by e.id;
+ $$;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql /mnt/data/smarthub_map_edit/supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql
+--- /mnt/data/smarthub_250_original/supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/smarthub_map_edit/supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql	2026-08-15 05:22:34.764257328 +0000
+@@ -0,0 +1,171 @@
++-- ======================================================================
++-- migracion-14-horario-8-a-19-y-mapa-semaforo.sql
++--
++-- Regla comercial Smart Hub:
++--   • abierto TODOS los días;
++--   • 08:00 a 19:00, America/Tijuana;
++--   • 11 bloques reservables de 1 hora;
++--   • el mapa resume verde / ámbar / rojo con esos mismos bloques.
++--
++-- Idempotente. Diseñada para una base que ya tenga migraciones 01–13.
++-- ======================================================================
++
++begin;
++
++-- 1) Horario autoritativo de la organización Smart Hub.
++-- Actualiza tanto reglas generales de edificio como excepciones por
++-- espacio para que ninguna excepción vieja (por ejemplo domingo cerrado)
++-- gane prioridad sobre el nuevo horario.
++update public.horarios_operacion h
++   set abre = '08:00'::time,
++       cierra = '19:00'::time,
++       cerrado = false
++ where h.organizacion_id = (
++   select id from public.organizaciones where slug = 'smart-hub' limit 1
++ );
++
++-- Si falta algún día general de algún edificio, créalo.
++insert into public.horarios_operacion
++  (organizacion_id, edificio_id, espacio_id, dia_semana, abre, cierra, cerrado)
++select e.organizacion_id, e.id, null, d, '08:00'::time, '19:00'::time, false
++  from public.edificios e
++  join public.organizaciones o on o.id = e.organizacion_id and o.slug = 'smart-hub'
++ cross join generate_series(0, 6) as d
++ where not exists (
++   select 1 from public.horarios_operacion h
++    where h.organizacion_id = e.organizacion_id
++      and h.edificio_id = e.id
++      and h.espacio_id is null
++      and h.dia_semana = d
++ );
++
++-- 2) Única definición de franja permitida.
++create or replace function public.franja_reservable_v1(
++  p_espacio uuid, p_inicio timestamptz, p_fin timestamptz
++) returns boolean
++language plpgsql stable security definer set search_path = public as $$
++declare
++  v_zona text;
++  v_edificio uuid;
++  v_ini_local timestamp;
++  v_fin_local timestamp;
++  v_dia int;
++  v_bloque text;
++  v_hor public.horarios_operacion;
++begin
++  if p_espacio is null or p_inicio is null or p_fin is null or p_fin <= p_inicio then
++    return false;
++  end if;
++
++  select o.zona_horaria, e.edificio_id
++    into v_zona, v_edificio
++    from public.espacios e
++    join public.organizaciones o on o.id = e.organizacion_id
++   where e.id = p_espacio;
++  if not found then return false; end if;
++
++  v_ini_local := p_inicio at time zone v_zona;
++  v_fin_local := p_fin at time zone v_zona;
++  if v_ini_local::date <> v_fin_local::date then return false; end if;
++
++  v_bloque := to_char(v_ini_local, 'HH24:MI') || '-' || to_char(v_fin_local, 'HH24:MI');
++  if not (v_bloque = any(array[
++    '08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00',
++    '12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00',
++    '16:00-17:00','17:00-18:00','18:00-19:00'
++  ]::text[])) then
++    return false;
++  end if;
++
++  v_dia := extract(dow from v_ini_local)::int;
++  select h.* into v_hor
++    from public.horarios_operacion h
++   where h.dia_semana = v_dia
++     and (h.espacio_id = p_espacio
++          or (h.espacio_id is null and h.edificio_id = v_edificio))
++   order by (h.espacio_id is not null) desc, h.creado_en desc
++   limit 1;
++
++  if not found or v_hor.cerrado then return false; end if;
++  return v_ini_local::time >= v_hor.abre
++     and v_fin_local::time <= v_hor.cierra;
++end $$;
++
++revoke all on function public.franja_reservable_v1(uuid, timestamptz, timestamptz)
++  from public, anon, authenticated;
++grant execute on function public.franja_reservable_v1(uuid, timestamptz, timestamptz)
++  to service_role;
++
++-- 3) Disponibilidad diaria con la misma rejilla que el navegador.
++create or replace function public.disponibilidad_dia(
++  p_espacio uuid, p_fecha date,
++  p_bloques text[] default array[
++    '08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00',
++    '12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00',
++    '16:00-17:00','17:00-18:00','18:00-19:00'
++  ]
++) returns table (bloque text, libre boolean)
++language plpgsql stable set search_path = public as $$
++declare
++  b text;
++  ini timestamptz;
++  fin timestamptz;
++  v_zona text;
++begin
++  select o.zona_horaria into v_zona
++    from public.espacios e
++    join public.organizaciones o on o.id = e.organizacion_id
++   where e.id = p_espacio;
++  if not found then return; end if;
++
++  foreach b in array p_bloques loop
++    bloque := b;
++    begin
++      ini := (p_fecha + split_part(b, '-', 1)::time) at time zone v_zona;
++      fin := (p_fecha + split_part(b, '-', 2)::time) at time zone v_zona;
++      -- Un bloque que ya terminó no se anuncia como libre.
++      libre := fin > now() and public.esta_disponible(p_espacio, ini, fin);
++    exception when others then
++      libre := false;
++    end;
++    return next;
++  end loop;
++end $$;
++
++-- 4) Semáforo de mapa. `total` cuenta sólo bloques que aún no terminaron:
++-- verde significa que TODO lo que todavía puede reservarse hoy está libre.
++create or replace function public.disponibilidad_mapa(
++  p_organizacion uuid, p_fecha date
++) returns table (espacio_id uuid, libres int, total int)
++language sql stable set search_path = public as $$
++  with cfg as (
++    select zona_horaria from public.organizaciones where id = p_organizacion
++  ),
++  bloques as (
++    select unnest(array[
++      '08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00',
++      '12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00',
++      '16:00-17:00','17:00-18:00','18:00-19:00'
++    ]) as b
++  ),
++  reservables as (
++    select id from public.espacios
++     where organizacion_id = p_organizacion and reservable and activo and estado = 'disponible'
++  )
++  select e.id,
++         count(*) filter (
++           where ((p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria) > now()
++             and public.esta_disponible(
++               e.id,
++               (p_fecha + split_part(bl.b,'-',1)::time) at time zone cfg.zona_horaria,
++               (p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria
++             )
++         )::int as libres,
++         count(*) filter (
++           where ((p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria) > now()
++         )::int as total
++    from reservables e cross join bloques bl cross join cfg
++   group by e.id;
++$$;
++
++commit;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/supabase/pruebas-restricciones.sql /mnt/data/smarthub_map_edit/supabase/pruebas-restricciones.sql
+--- /mnt/data/smarthub_250_original/supabase/pruebas-restricciones.sql	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/supabase/pruebas-restricciones.sql	2026-08-15 05:19:22.776891198 +0000
+@@ -368,7 +368,7 @@
+ 
+   perform pg_temp.acepta('bloque horario válido',
+     format($q$insert into public.lista_espera (espacio_id, usuario_id, fecha, bloque)
+-             values (%L, %L, current_date + 3, '09:00-11:00')$q$, c.espacio, c.usuario));
++             values (%L, %L, current_date + 3, '08:00-09:00')$q$, c.espacio, c.usuario));
+   perform pg_temp.acepta('correo normal',
+     format($q$update public.usuarios set email = 'alguien@ejemplo.mx' where id = %L$q$, c.usuario));
+ end $$;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/supabase/schema.sql /mnt/data/smarthub_map_edit/supabase/schema.sql
+--- /mnt/data/smarthub_250_original/supabase/schema.sql	2026-08-14 21:05:09.000000000 +0000
++++ /mnt/data/smarthub_map_edit/supabase/schema.sql	2026-08-15 05:22:34.763916293 +0000
+@@ -245,8 +245,8 @@
+   espacio_id   uuid references public.espacios(id) on delete cascade,
+   edificio_id  uuid references public.edificios(id) on delete cascade,
+   dia_semana   int not null check (dia_semana between 0 and 6),  -- 0 = domingo
+-  abre         time not null default '09:00',
+-  cierra       time not null default '21:00',
++  abre         time not null default '08:00',
++  cierra       time not null default '19:00',
+   cerrado      boolean not null default false,
+   creado_en    timestamptz not null default now()
+ );
+@@ -407,7 +407,7 @@
+   espacio_id  uuid not null references public.espacios(id) on delete cascade,
+   usuario_id  uuid not null references public.usuarios(id) on delete cascade,
+   fecha       date not null,
+-  bloque      text,                   -- '09:00-11:00' o null = cualquier hora
++  bloque      text,                   -- '08:00-09:00' o null = cualquier hora
+   notificado  boolean not null default false,
+   notificado_en timestamptz,
+   activo      boolean not null default true,
+@@ -737,7 +737,7 @@
+ -- Cada hora se interpreta en la zona de la organización, no en la zona
+ -- de la conexión PostgreSQL (en la nube suele ser UTC).
+ create or replace function public.disponibilidad_dia(
+-  p_espacio uuid, p_fecha date, p_bloques text[] default array['09:00-11:00','11:00-13:00','13:00-15:00','15:00-17:00','17:00-19:00','19:00-21:00']
++  p_espacio uuid, p_fecha date, p_bloques text[] default array['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00','16:00-17:00','17:00-18:00','18:00-19:00']
+ ) returns table (bloque text, libre boolean)
+ language plpgsql stable as $$
+ declare b text; ini timestamptz; fin timestamptz; v_zona text;
+@@ -753,7 +753,7 @@
+     begin
+       ini := (p_fecha + split_part(b, '-', 1)::time) at time zone v_zona;
+       fin := (p_fecha + split_part(b, '-', 2)::time) at time zone v_zona;
+-      libre := public.esta_disponible(p_espacio, ini, fin);
++      libre := fin > now() and public.esta_disponible(p_espacio, ini, fin);
+     exception when others then
+       libre := false;
+     end;
+@@ -771,7 +771,7 @@
+     select zona_horaria from public.organizaciones where id = p_organizacion
+   ),
+   bloques as (
+-    select unnest(array['09:00-11:00','11:00-13:00','13:00-15:00','15:00-17:00','17:00-19:00','19:00-21:00']) as b
++    select unnest(array['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00','16:00-17:00','17:00-18:00','18:00-19:00']) as b
+   ),
+   reservables as (
+     select id from public.espacios
+@@ -779,13 +779,16 @@
+   )
+   select e.id,
+          count(*) filter (
+-           where public.esta_disponible(
++           where ((p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria) > now()
++             and public.esta_disponible(
+              e.id,
+              (p_fecha + split_part(bl.b,'-',1)::time) at time zone cfg.zona_horaria,
+              (p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria
+            )
+          )::int as libres,
+-         count(*)::int as total
++         count(*) filter (
++           where ((p_fecha + split_part(bl.b,'-',2)::time) at time zone cfg.zona_horaria) > now()
++         )::int as total
+     from reservables e cross join bloques bl cross join cfg
+    group by e.id;
+ $$;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/supabase/seed.sql /mnt/data/smarthub_map_edit/supabase/seed.sql
+--- /mnt/data/smarthub_250_original/supabase/seed.sql	2026-08-14 21:04:02.000000000 +0000
++++ /mnt/data/smarthub_map_edit/supabase/seed.sql	2026-08-15 05:18:22.578214621 +0000
+@@ -275,10 +275,10 @@
+  where e.organizacion_id = '11111111-1111-1111-1111-111111111111'
+    and e.codigo = p.codigo;
+ 
+--- ---------- horarios de operación (lunes a sábado) ----------
++-- ---------- horarios de operación (todos los días, 08:00–19:00) ----------
+ insert into public.horarios_operacion (organizacion_id, edificio_id, dia_semana, abre, cierra, cerrado)
+ select '11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333',
+-       d, '09:00'::time, '21:00'::time, (d = 0)
++       d, '08:00'::time, '19:00'::time, false
+   from generate_series(0, 6) d
+  where not exists (
+    select 1 from public.horarios_operacion h
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/supabase/seguridad.sql /mnt/data/smarthub_map_edit/supabase/seguridad.sql
+--- /mnt/data/smarthub_250_original/supabase/seguridad.sql	2026-08-14 21:05:09.000000000 +0000
++++ /mnt/data/smarthub_map_edit/supabase/seguridad.sql	2026-08-15 05:18:22.579652762 +0000
+@@ -300,9 +300,10 @@
+ -- ======================================================================
+ -- 3. VALIDACIÓN DE HORARIOS — el navegador y PostgreSQL venden lo mismo
+ --
+--- La interfaz V1 ofrece seis franjas de dos horas. La API no puede aceptar
+--- un domingo cerrado, media hora suelta o una hora interpretada en UTC:
+--- un cliente puede llamar las RPC sin pasar por nuestros botones.
++-- La interfaz V1 ofrece once franjas de una hora, de 08:00 a 19:00,
++-- TODOS los días. La API no puede aceptar horas fuera de esa ventana ni
++-- una hora interpretada en UTC: un cliente puede llamar las RPC sin pasar
++-- por nuestros botones.
+ -- ======================================================================
+ create or replace function public.franja_reservable_v1(
+   p_espacio uuid, p_inicio timestamptz, p_fin timestamptz
+@@ -334,8 +335,9 @@
+ 
+   v_bloque := to_char(v_ini_local, 'HH24:MI') || '-' || to_char(v_fin_local, 'HH24:MI');
+   if not (v_bloque = any(array[
+-    '09:00-11:00','11:00-13:00','13:00-15:00',
+-    '15:00-17:00','17:00-19:00','19:00-21:00'
++    '08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00',
++    '12:00-13:00','13:00-14:00','14:00-15:00','15:00-16:00',
++    '16:00-17:00','17:00-18:00','18:00-19:00'
+   ]::text[])) then
+     return false;
+   end if;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/sw.js /mnt/data/smarthub_map_edit/sw.js
+--- /mnt/data/smarthub_250_original/sw.js	2026-08-14 20:40:16.000000000 +0000
++++ /mnt/data/smarthub_map_edit/sw.js	2026-08-15 05:18:22.582837500 +0000
+@@ -26,7 +26,7 @@
+  * prueba que lo comprueba (tests/prelanzamiento.mjs, caso P), justo para
+  * que no se olvide.
+  */
+-const VERSION = "v2.5.0";
++const VERSION = "v2.6.0";
+ const CACHE_SHELL = `co-shell-${VERSION}`;
+ const CACHE_EXTERNO = `co-externo-${VERSION}`;
+ const CACHE_IMG = `co-img-${VERSION}`;
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/tests/prelanzamiento.mjs /mnt/data/smarthub_map_edit/tests/prelanzamiento.mjs
+--- /mnt/data/smarthub_250_original/tests/prelanzamiento.mjs	2026-08-14 20:46:22.000000000 +0000
++++ /mnt/data/smarthub_map_edit/tests/prelanzamiento.mjs	2026-08-15 05:19:22.776594088 +0000
+@@ -192,7 +192,7 @@
+       nulo: texto(rejillaHorarios(null, { fecha })),
+       indefinido: texto(rejillaHorarios(undefined, { fecha })),
+       vacio: texto(rejillaHorarios([], { fecha })),
+-      conDatos: texto(rejillaHorarios([{ bloque: "09:00-11:00", libre: true }], { fecha })),
++      conDatos: texto(rejillaHorarios([{ bloque: "08:00-09:00", libre: true }], { fecha })),
+       nuloTieneBoton: /data-reintentar-disp/.test(String(rejillaHorarios(null, { fecha }))),
+       indefTieneEsqueleto: /esqueleto/.test(String(rejillaHorarios(undefined, { fecha }))),
+     };
+@@ -270,8 +270,8 @@
+ 
+     // 1. Una caché "buena" y bien reciente, del formato exacto que
+     //    guardaba la versión anterior.
+-    const mentira = [{ bloque: "09:00-11:00", libre: true },
+-                     { bloque: "11:00-13:00", libre: true }];
++    const mentira = [{ bloque: "08:00-09:00", libre: true },
++                     { bloque: "09:00-10:00", libre: true }];
+     await cache.guardar(`disp:${esp.id}:${fecha}`, mentira, 10 * 60 * 1000);
+     const seGuardo = Boolean(await cache.leer(`disp:${esp.id}:${fecha}`));
+ 
+@@ -282,7 +282,7 @@
+       demo: api.enModoDemo?.(),
+       seGuardo,
+       resultado: d === null ? "null" : Array.isArray(d) ? `array(${d.length})` : String(d),
+-      sirvioLaCache: Array.isArray(d) && d.some((x) => x.bloque === "09:00-11:00" && x.libre),
++      sirvioLaCache: Array.isArray(d) && d.some((x) => x.bloque === "08:00-09:00" && x.libre),
+     };
+   });
+   if (r.sinEspacios) mal("L", "Caché vieja no se sirve como disponibilidad", "sin catálogo");
+@@ -341,7 +341,7 @@
+     const { APP } = await import("/js/core/config.js");
+ 
+     // Caché de la época anterior: disponibilidad y catálogo.
+-    await cache.guardar("disp:x:2026-01-01", [{ bloque: "09:00-11:00", libre: true }], 60 * 60 * 1000);
++    await cache.guardar("disp:x:2026-01-01", [{ bloque: "08:00-09:00", libre: true }], 60 * 60 * 1000);
+     await cache.guardar("mapa:o:2026-01-01", { x: { libres: 9, total: 9 } }, 60 * 60 * 1000);
+     await cache.guardar("espacios:lista", [{ id: "x", total_reservas: 87 }], 60 * 60 * 1000);
+     const sembrado = [
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/tests/zona-horaria.mjs /mnt/data/smarthub_map_edit/tests/zona-horaria.mjs
+--- /mnt/data/smarthub_250_original/tests/zona-horaria.mjs	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/tests/zona-horaria.mjs	2026-08-15 05:19:22.777068711 +0000
+@@ -2,13 +2,13 @@
+    zona-horaria.mjs — Las horas son las del EDIFICIO, no las del móvil.
+ 
+    Smart Hub opera en America/Tijuana, que cambia de horario dos veces al
+-   año. Los bloques (09:00–21:00) son horas del edificio: reservar «las
+-   nueve» tiene que guardar el mismo instante real venga la petición de
++   año. Los bloques (08:00–19:00) son horas del edificio: reservar «las
++   ocho» tiene que guardar el mismo instante real venga la petición de
+    donde venga.
+ 
+    Esto ya falló una vez: combinarFechaHora() usaba setHours(), que
+    interpreta la hora en la zona del dispositivo. Desde Madrid, reservar
+-   «09:00» guardaba las 07:00Z — medianoche en Tijuana.
++   «08:00» guardaba una hora distinta según el dispositivo.
+    ====================================================================== */
+ import { chromium } from "playwright";
+ 
+@@ -42,25 +42,25 @@
+ /* ---- 1. El mismo bloque desde cualquier dispositivo ---- */
+ {
+   const salidas = [];
+-  for (const tz of ZONAS) salidas.push((await enDispositivo(tz, "2026-09-15", "09:00-11:00")).inicio);
++  for (const tz of ZONAS) salidas.push((await enDispositivo(tz, "2026-09-15", "08:00-09:00")).inicio);
+   const iguales = new Set(salidas).size === 1;
+   chk(iguales, "misma reserva desde 5 zonas → el mismo instante",
+     iguales ? salidas[0] : salidas.join(" ≠ "));
+-  chk(horaEnTijuana(salidas[0]) === "09:00",
+-    "y ese instante son las 09:00 en el edificio", horaEnTijuana(salidas[0]));
++  chk(horaEnTijuana(salidas[0]) === "08:00",
++    "y ese instante son las 08:00 en el edificio", horaEnTijuana(salidas[0]));
+ }
+ 
+ /* ---- 2. Horario de verano (abril–octubre) ---- */
+ {
+   // 15 de julio: Baja California está en horario de verano (UTC−7).
+-  const verano = await enDispositivo("UTC", "2026-07-15", "09:00-11:00");
+-  chk(horaEnTijuana(verano.inicio) === "09:00",
+-    "en horario de verano siguen siendo las 09:00", `${verano.inicio} → ${horaEnTijuana(verano.inicio)}`);
++  const verano = await enDispositivo("UTC", "2026-07-15", "08:00-09:00");
++  chk(horaEnTijuana(verano.inicio) === "08:00",
++    "en horario de verano siguen siendo las 08:00", `${verano.inicio} → ${horaEnTijuana(verano.inicio)}`);
+ 
+   // 15 de enero: horario estándar (UTC−8).
+-  const invierno = await enDispositivo("UTC", "2026-01-15", "09:00-11:00");
+-  chk(horaEnTijuana(invierno.inicio) === "09:00",
+-    "en horario estándar también son las 09:00", `${invierno.inicio} → ${horaEnTijuana(invierno.inicio)}`);
++  const invierno = await enDispositivo("UTC", "2026-01-15", "08:00-09:00");
++  chk(horaEnTijuana(invierno.inicio) === "08:00",
++    "en horario estándar también son las 08:00", `${invierno.inicio} → ${horaEnTijuana(invierno.inicio)}`);
+ 
+   // Y el desfase entre ambos tiene que ser justo de una hora.
+   const dif = Math.abs(
+@@ -73,10 +73,10 @@
+   ["2026-04-05", "el día que entra el horario de verano"],
+   ["2026-10-25", "el día que sale el horario de verano"],
+ ]) {
+-  const r = await enDispositivo("UTC", fecha, "09:00-11:00");
+-  const dosHoras = (new Date(r.fin) - new Date(r.inicio)) === 2 * 3600000;
+-  chk(horaEnTijuana(r.inicio) === "09:00" && dosHoras,
+-    `${etiqueta}: 09:00 y dura 2 h`,
++  const r = await enDispositivo("UTC", fecha, "08:00-09:00");
++  const unaHora = (new Date(r.fin) - new Date(r.inicio)) === 3600000;
++  chk(horaEnTijuana(r.inicio) === "08:00" && unaHora,
++    `${etiqueta}: 08:00 y dura 1 h`,
+     `${horaEnTijuana(r.inicio)} · ${(new Date(r.fin) - new Date(r.inicio)) / 3600000} h`);
+ }
+ 
+@@ -138,11 +138,11 @@
+ 
+ /* ---- 6. El último bloque del día no se va al día siguiente ---- */
+ {
+-  const r = await enDispositivo("Asia/Tokyo", "2026-09-15", "19:00-21:00");
++  const r = await enDispositivo("Asia/Tokyo", "2026-09-15", "18:00-19:00");
+   const dia = new Intl.DateTimeFormat("en-CA", {
+     timeZone: "America/Tijuana", year: "numeric", month: "2-digit", day: "2-digit",
+   }).format(new Date(r.inicio));
+-  chk(dia === "2026-09-15" && horaEnTijuana(r.inicio) === "19:00",
++  chk(dia === "2026-09-15" && horaEnTijuana(r.inicio) === "18:00",
+     "el último bloque sigue cayendo el mismo día", `${dia} ${horaEnTijuana(r.inicio)}`);
+ }
+ 
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_250_original/tools/prueba-datos.mjs /mnt/data/smarthub_map_edit/tools/prueba-datos.mjs
+--- /mnt/data/smarthub_250_original/tools/prueba-datos.mjs	2026-08-14 20:04:01.000000000 +0000
++++ /mnt/data/smarthub_map_edit/tools/prueba-datos.mjs	2026-08-15 05:19:22.776737270 +0000
+@@ -84,13 +84,13 @@
+     try { const r = await fn(); casos[n] = { acepta: true, valor: r?.total ?? r?.asistentes ?? 'ok' }; }
+     catch (e) { casos[n] = { acepta: false, msg: String(e.message).slice(0, 40) }; }
+   };
+-  await intenta('asistentes negativos', () => api.crearReserva({ espacioId: esp, fecha: f, bloque: '09:00-11:00', asistentes: -5 }));
+-  await intenta('asistentes enormes', () => api.crearReserva({ espacioId: esp, fecha: f, bloque: '11:00-13:00', asistentes: 99999 }));
+-  await intenta('espacio inexistente', () => api.crearReserva({ espacioId: 'no-existe', fecha: f, bloque: '09:00-11:00' }));
++  await intenta('asistentes negativos', () => api.crearReserva({ espacioId: esp, fecha: f, bloque: '08:00-09:00', asistentes: -5 }));
++  await intenta('asistentes enormes', () => api.crearReserva({ espacioId: esp, fecha: f, bloque: '09:00-10:00', asistentes: 99999 }));
++  await intenta('espacio inexistente', () => api.crearReserva({ espacioId: 'no-existe', fecha: f, bloque: '08:00-09:00' }));
+   await intenta('bloque inventado', () => api.crearReserva({ espacioId: esp, fecha: f, bloque: 'HOLA-MUNDO' }));
+-  await intenta('fecha en el pasado', () => api.crearReserva({ espacioId: esp, fecha: '2020-01-01', bloque: '09:00-11:00' }));
+-  await intenta('fecha basura', () => api.crearReserva({ espacioId: esp, fecha: 'no-es-fecha', bloque: '09:00-11:00' }));
+-  await intenta('notas de 100k', () => api.crearReserva({ espacioId: esp, fecha: f, bloque: '13:00-15:00', notas: 'x'.repeat(100000) }));
++  await intenta('fecha en el pasado', () => api.crearReserva({ espacioId: esp, fecha: '2020-01-01', bloque: '08:00-09:00' }));
++  await intenta('fecha basura', () => api.crearReserva({ espacioId: esp, fecha: 'no-es-fecha', bloque: '08:00-09:00' }));
++  await intenta('notas de 100k', () => api.crearReserva({ espacioId: esp, fecha: f, bloque: '10:00-11:00', notas: 'x'.repeat(100000) }));
+   return casos;
+ }, ESP.b);
+ for (const [n, r] of Object.entries(c2)) {
+@@ -104,7 +104,7 @@
+   const pruebas = {};
+   const r1 = rangoBloque('2026-12-31', '23:00-01:00');   // cruza medianoche y año
+   pruebas.cruzaAnio = { fin: r1.fin?.toISOString(), finMayor: r1.fin > r1.inicio };
+-  const r2 = rangoBloque('2026-02-29', '09:00-11:00');   // 2026 no es bisiesto
++  const r2 = rangoBloque('2026-02-29', '08:00-09:00');   // 2026 no es bisiesto
+   pruebas.febrero29 = { valido: !isNaN(r2.inicio?.getTime()) };
+   const r3 = rangoBloque('2026-04-05', '01:30-03:30');   // cambio de horario (DST)
+   pruebas.dst = { horas: (r3.fin - r3.inicio) / 36e5 };

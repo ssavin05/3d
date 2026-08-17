@@ -1,0 +1,491 @@
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/OWNER_ACTIONS.md /mnt/data/smarthub_map_edit/OWNER_ACTIONS.md
+--- /mnt/data/smarthub_260_base/OWNER_ACTIONS.md	2026-08-15 05:20:17.000000000 +0000
++++ /mnt/data/smarthub_map_edit/OWNER_ACTIONS.md	2026-08-15 05:37:51.071418131 +0000
+@@ -179,3 +179,10 @@
+ - [ ] Aplicar `supabase/migracion-14-horario-8-a-19-y-mapa-semaforo.sql` en producción.
+ - [ ] Verificar que los 7 días estén abiertos de 08:00 a 19:00.
+ - [ ] Verificar el mapa: verde = 11/11 libres, ámbar = 1–10/11 libres, rojo = 0/11 o espacio no reservable.
++
++
++---
++
++## Actualización 2.6.1 — corrección visual del mapa
++
++La versión 2.6.0 pintaba el bloque completo con el color del semáforo y una base gris grande. En producción eso hacía que el edificio pareciera una masa verde plana. 2.6.1 cambia únicamente la presentación del mapa: cuerpo 3D neutro, tapa de estado coloreada, cámara más isométrica, etiquetas mayores, losa/pasillos oscuros y allow-list visual de OF-A/B/C/D. No añade una migración nueva: el horario 08:00–19:00 sigue siendo la migración 14.
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/README.md /mnt/data/smarthub_map_edit/README.md
+--- /mnt/data/smarthub_260_base/README.md	2026-08-15 05:20:17.000000000 +0000
++++ /mnt/data/smarthub_map_edit/README.md	2026-08-15 05:37:51.071251094 +0000
+@@ -1,6 +1,6 @@
+ # Smart Hub — Sistema de reservas con mapa 3D
+ 
+-> **Mapa de reservas 2.6.0:** bloques 3D cerrados. Rojo = no disponible/no reservable, ámbar = disponibilidad parcial, verde = todo libre. Horario: todos los días, 08:00 a 19:00, en bloques de 1 hora.
++> **Mapa de reservas 2.6.1:** bloques 3D cerrados con cuerpo arquitectónico oscuro y tapa de estado. Rojo = no disponible/no reservable, ámbar = disponibilidad parcial, verde = todo libre. Sólo OF-A/B/C/D pueden pintarse como reservables. Horario: todos los días, 08:00 a 19:00, en bloques de 1 hora.
+ 
+ 
+ Aplicación web progresiva (PWA) para reservar oficinas, con mapa 3D
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/docs/CAMBIOS-2.6.1-MAPA-VISUAL.md /mnt/data/smarthub_map_edit/docs/CAMBIOS-2.6.1-MAPA-VISUAL.md
+--- /mnt/data/smarthub_260_base/docs/CAMBIOS-2.6.1-MAPA-VISUAL.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/smarthub_map_edit/docs/CAMBIOS-2.6.1-MAPA-VISUAL.md	2026-08-15 05:37:51.071538890 +0000
+@@ -0,0 +1,12 @@
++# Smart Hub 2.6.1 — corrección visual del mapa 3D
++
++- Los cuartos ya no son prismas completamente verdes/rojos.
++- Cada espacio tiene cuerpo 3D arquitectónico oscuro y una tapa superior que muestra el semáforo.
++- Verde: todo libre. Ámbar: disponibilidad parcial. Rojo: sin disponibilidad.
++- Los espacios no reservables usan tapa rojo oscuro y borde rojo.
++- Sólo `OF-A`, `OF-B`, `OF-C` y `OF-D` pueden aparecer como reservables en el mapa.
++- Áreas abiertas tienen menos altura para que Patio/Espacio Abierto no parezcan edificios gigantes.
++- Cámara más baja e isométrica para que el volumen sí se perciba.
++- Etiquetas más grandes, con hasta dos líneas.
++- Losa y pasillos oscuros para eliminar la gran mancha gris de 2.6.0.
++- Horario sin cambios: todos los días, 08:00–19:00, bloques de una hora (migración 14).
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/js/core/config.js /mnt/data/smarthub_map_edit/js/core/config.js
+--- /mnt/data/smarthub_260_base/js/core/config.js	2026-08-15 05:20:17.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/core/config.js	2026-08-15 05:35:28.591342564 +0000
+@@ -63,7 +63,7 @@
+ export const APP = {
+   name: pick("app.name", "Smart Hub"),
+   shortName: pick("app.shortName", "Smart Hub"),
+-  version: pick("app.version", "2.6.0"),
++  version: pick("app.version", "2.6.1"),
+   /* Marca de pre-lanzamiento. Al ejecutar limpieza-lanzamiento-aplicar.sql hay
+      que cambiar esta fecha: cada equipo que abra la app comparará la
+      suya y, si no coincide, purgará la disponibilidad guardada. Sin
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/js/three/edificio.js /mnt/data/smarthub_map_edit/js/three/edificio.js
+--- /mnt/data/smarthub_260_base/js/three/edificio.js	2026-08-15 05:21:03.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/three/edificio.js	2026-08-15 05:37:30.910941036 +0000
+@@ -70,35 +70,42 @@
+  */
+ export function crearVolumen(espacio, centro, { plano = true } = {}) {
+   const r = rectDe(espacio, centro);
+-  const reservable = espacio.reservable && espacio.estado !== "inactiva";
+-  // En el mapa de bloques la altura es VISUAL, no un dato físico de la
+-  // base. Así podemos darle volumen al mapa sin alterar el plano ni las
+-  // migraciones de geometría.
+-  const alturaMapa = {
+-    oficina: 1.05, sala_juntas: 0.95, coworking: 0.78,
+-    comun: 0.68, servicio: 0.72, estacionamiento: 0.52,
++  const reservable = Boolean(espacio.reservable) && espacio.estado !== "inactiva";
++
++  /*
++   * Mapa de reservas 2.6.1
++   * ----------------------
++   * El bloque ya NO se pinta entero de verde/rojo. Eso hacía que el
++   * edificio pareciera una hoja de Excel extruida. El cuerpo conserva un
++   * material arquitectónico oscuro y sólo la tapa superior funciona como
++   * semáforo. Así se leen simultáneamente la forma del edificio y el
++   * estado de cada espacio.
++   */
++  const alturaCerrado = {
++    oficina: 1.18,
++    sala_juntas: 1.08,
++    coworking: 0.92,
++    comun: 0.82,
++    servicio: 0.88,
++    estacionamiento: 0.62,
+   };
+   const altura = plano
+-    ? (espacio.abierto ? 0.30 : (alturaMapa[espacio.tipo] ?? 0.72))
++    ? (espacio.abierto ? 0.24 : (alturaCerrado[espacio.tipo] ?? 0.86))
+     : (Number(espacio.altura) || (reservable ? 1.35 : espacio.abierto ? ALTURA_BORDILLO : 0.9));
+ 
+-  // En modo plano cada cuarto es un bloque de color liso, bajito, como
+-  // en un plano arquitectónico coloreado. Sin brillos ni transparencias:
+-  // lo que importa es distinguir de un vistazo qué es cada cosa.
+-  // El color definitivo lo aplica `aplicarDisponibilidad()` al cargar el
+-  // semáforo. De entrada dejamos gris para no mentir mientras consulta.
+-  const color = plano
+-    ? COLOR_SEMAFORO.desconocido
+-    : (reservable ? 0x123249 : COLOR_MUDO);
+-
+-  const material = plano
+-    ? new THREE.MeshLambertMaterial({ color })
++  const cuerpoMat = plano
++    ? new THREE.MeshLambertMaterial({ color: espacio.abierto ? 0x162234 : 0x203047 })
+     : new THREE.MeshStandardMaterial({
+-        color, roughness: 0.72, metalness: 0.08,
+-        transparent: true, opacity: reservable ? 0.94 : 0.86,
++        color: reservable ? 0x123249 : COLOR_MUDO,
++        roughness: 0.72,
++        metalness: 0.08,
++        transparent: true,
++        opacity: reservable ? 0.94 : 0.86,
+       });
+ 
+-  const malla = caja(r.w - 0.06, altura, r.d - 0.06, material);
++  // Un pequeño margen crea juntas oscuras entre cuartos contiguos.
++  const margen = plano ? 0.12 : 0.06;
++  const malla = caja(Math.max(0.18, r.w - margen), altura, Math.max(0.18, r.d - margen), cuerpoMat);
+   malla.position.set(r.x, altura / 2, r.z);
+   malla.castShadow = !plano;
+   malla.receiveShadow = true;
+@@ -106,20 +113,56 @@
+     espacioId: String(espacio.id),
+     reservable,
+     alturaBase: altura,
+-    colorBase: material.color.clone(),
++    colorBase: cuerpoMat.color.clone(),
+   };
+ 
+-  // Contorno: separa cuartos contiguos del mismo color, que es
+-  // justo lo que pasa cuando hay cuatro oficinas seguidas.
+-  const bordes = new THREE.LineSegments(
+-    new THREE.EdgesGeometry(malla.geometry),
+-    new THREE.LineBasicMaterial({
+-      color: plano ? 0x8fb8d8 : (reservable ? 0x5fd4ff : 0x36485f),
+-      transparent: true, opacity: plano ? 0.72 : 0.5,
+-    })
+-  );
+-  malla.add(bordes);
+-  malla.userData.bordes = bordes;
++  if (plano) {
++    // Tapa de estado: inset para que se vea el borde/cuerpo 3D alrededor.
++    const capH = espacio.abierto ? 0.035 : 0.055;
++    const capMat = new THREE.MeshLambertMaterial({ color: COLOR_SEMAFORO.desconocido });
++    const cap = caja(
++      Math.max(0.12, r.w - margen - 0.10),
++      capH,
++      Math.max(0.12, r.d - margen - 0.10),
++      capMat
++    );
++    cap.position.set(0, altura / 2 + capH / 2 + 0.008, 0);
++    cap.receiveShadow = true;
++    malla.add(cap);
++
++    const capBordes = new THREE.LineSegments(
++      new THREE.EdgesGeometry(cap.geometry),
++      new THREE.LineBasicMaterial({
++        color: COLOR_SEMAFORO.desconocido,
++        transparent: true,
++        opacity: 0.95,
++      })
++    );
++    cap.add(capBordes);
++
++    // Línea arquitectónica del volumen, independiente del semáforo.
++    const bordes = new THREE.LineSegments(
++      new THREE.EdgesGeometry(malla.geometry),
++      new THREE.LineBasicMaterial({ color: 0x506a86, transparent: true, opacity: 0.82 })
++    );
++    malla.add(bordes);
++
++    malla.userData.statusCap = cap;
++    malla.userData.statusBordes = capBordes;
++    malla.userData.bordes = bordes;
++    malla.userData.statusColorBase = capMat.color.clone();
++  } else {
++    const bordes = new THREE.LineSegments(
++      new THREE.EdgesGeometry(malla.geometry),
++      new THREE.LineBasicMaterial({
++        color: reservable ? 0x5fd4ff : 0x36485f,
++        transparent: true,
++        opacity: 0.5,
++      })
++    );
++    malla.add(bordes);
++    malla.userData.bordes = bordes;
++  }
+ 
+   return malla;
+ }
+@@ -128,33 +171,61 @@
+ export function crearEtiqueta(texto, { escala = 1 } = {}) {
+   const canvas = document.createElement("canvas");
+   const ctx = canvas.getContext("2d");
+-  const fuente = "600 44px Inter, system-ui, sans-serif";
++  const limpio = String(texto || "").trim();
++  const palabras = limpio.split(/\s+/);
++
++  // Dos líneas como máximo: evita etiquetas minúsculas en nombres largos.
++  let lineas = [limpio];
++  if (palabras.length > 1 && limpio.length > 13) {
++    let a = "", b = "";
++    for (const palabra of palabras) {
++      if (!a || (a + " " + palabra).length <= Math.ceil(limpio.length / 2) + 2) a += (a ? " " : "") + palabra;
++      else b += (b ? " " : "") + palabra;
++    }
++    if (b) lineas = [a, b];
++  }
++
++  const fuente = "700 42px Inter, system-ui, sans-serif";
+   ctx.font = fuente;
+-  const ancho = Math.ceil(ctx.measureText(texto).width) + 48;
++  const anchoTexto = Math.max(...lineas.map((l) => ctx.measureText(l).width));
++  const ancho = Math.ceil(anchoTexto) + 54;
++  const altoCanvas = lineas.length === 2 ? 112 : 78;
+   canvas.width = ancho;
+-  canvas.height = 76;
++  canvas.height = altoCanvas;
+ 
+   const c2 = canvas.getContext("2d");
+   c2.font = fuente;
+-  c2.fillStyle = "rgba(8,14,22,0.82)";
+-  redondeado(c2, 0, 0, ancho, 76, 20);
++  c2.fillStyle = "rgba(5,10,18,0.76)";
++  redondeado(c2, 0, 0, ancho, altoCanvas, 18);
+   c2.fill();
+-  c2.strokeStyle = "rgba(95,212,255,0.45)";
++  c2.strokeStyle = "rgba(255,255,255,0.18)";
+   c2.lineWidth = 2;
+-  redondeado(c2, 1, 1, ancho - 2, 74, 20);
++  redondeado(c2, 1, 1, ancho - 2, altoCanvas - 2, 18);
+   c2.stroke();
+-  c2.fillStyle = "#eef3f8";
++  c2.fillStyle = "#f8fafc";
+   c2.textAlign = "center";
+   c2.textBaseline = "middle";
+-  c2.fillText(texto, ancho / 2, 40);
++  c2.shadowColor = "rgba(0,0,0,.55)";
++  c2.shadowBlur = 4;
++  lineas.forEach((l, i) => {
++    const y = lineas.length === 2 ? (34 + i * 44) : altoCanvas / 2 + 2;
++    c2.fillText(l, ancho / 2, y);
++  });
+ 
+   const tex = new THREE.CanvasTexture(canvas);
+   tex.colorSpace = THREE.SRGBColorSpace;
+-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+-  // 0.62 m de alto en el mundo: legible sin tapar el edificio.
+-  const alto = 0.62 * escala;
+-  sprite.scale.set((ancho / 76) * alto, alto, 1);
+-  sprite.renderOrder = 10;
++  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
++    map: tex,
++    transparent: true,
++    depthTest: false,
++    depthWrite: false,
++  }));
++
++  // Más grande que la versión anterior: el mapa se usa para seleccionar,
++  // no como maqueta decorativa.
++  const alto = 0.78 * escala * (lineas.length === 2 ? 1.16 : 1);
++  sprite.scale.set((ancho / altoCanvas) * alto, alto, 1);
++  sprite.renderOrder = 20;
+   return sprite;
+ }
+ 
+@@ -286,24 +357,30 @@
+ }
+ 
+ /** Losa general del edificio. */
+-export function crearLosa(edificio) {
+-  const w = (Number(edificio?.ancho_m) || ENVOLVENTE.ancho) + 1.4;
+-  const d = (Number(edificio?.fondo_m) || ENVOLVENTE.fondo) + 1.4;
+-  const losa = caja(w, 0.22, d, mat.pisoConcreto);
+-  losa.position.y = -0.11;
++export function crearLosa(edificio, { plano = false } = {}) {
++  const w = (Number(edificio?.ancho_m) || ENVOLVENTE.ancho) + 1.0;
++  const d = (Number(edificio?.fondo_m) || ENVOLVENTE.fondo) + 1.0;
++  const material = plano
++    ? new THREE.MeshLambertMaterial({ color: 0x111c2c })
++    : mat.pisoConcreto;
++  const losa = caja(w, plano ? 0.18 : 0.22, d, material);
++  losa.position.y = plano ? -0.16 : -0.11;
+   losa.receiveShadow = true;
+   return losa;
+ }
+ 
+ /** Pasillos de circulación. */
+-export function crearCorredores(rects, centro) {
++export function crearCorredores(rects, centro, { plano = false } = {}) {
+   const grupo = new THREE.Group();
++  const material = plano
++    ? new THREE.MeshLambertMaterial({ color: 0x26364b })
++    : mat.pisoConcreto;
+   for (const c of rects) {
+     // Acepta las dos formas: {x,y} del plano y {pos_x,pos_y} de la base.
+     const r = rectDe({ pos_x: c.pos_x ?? c.x, pos_y: c.pos_y ?? c.y, ancho: c.ancho, fondo: c.fondo }, centro);
+-    const malla = new THREE.Mesh(new THREE.PlaneGeometry(r.w, r.d), mat.pisoConcreto);
++    const malla = new THREE.Mesh(new THREE.PlaneGeometry(r.w, r.d), material);
+     malla.rotation.x = -Math.PI / 2;
+-    malla.position.set(r.x, 0.014, r.z);
++    malla.position.set(r.x, 0.016, r.z);
+     malla.receiveShadow = true;
+     grupo.add(malla);
+   }
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/js/three/escena.js /mnt/data/smarthub_map_edit/js/three/escena.js
+--- /mnt/data/smarthub_260_base/js/three/escena.js	2026-08-15 05:22:34.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/three/escena.js	2026-08-15 05:37:30.911148063 +0000
+@@ -137,8 +137,8 @@
+   const grupoEdificio = new THREE.Group();
+   escena.add(grupoEdificio);
+ 
+-  grupoEdificio.add(edificio.crearLosa(edificioDatos));
+-  if (corredores.length) grupoEdificio.add(edificio.crearCorredores(corredores, centro));
++  grupoEdificio.add(edificio.crearLosa(edificioDatos, { plano: PLANO }));
++  if (corredores.length) grupoEdificio.add(edificio.crearCorredores(corredores, centro, { plano: PLANO }));
+ 
+   const volumenes = [];
+   const volumenPorId = new Map();
+@@ -219,8 +219,8 @@
+     volumenes.push(volumen);
+     volumenPorId.set(String(espacio.id), volumen);
+ 
+-    const etiqueta = edificio.crearEtiqueta(espacio.nombre, { escala: espacio.reservable ? 0.92 : 0.68 });
+-    etiqueta.position.set(volumen.position.x, volumen.userData.alturaBase + 0.24, volumen.position.z);
++    const etiqueta = edificio.crearEtiqueta(espacio.nombre, { escala: espacio.reservable ? 1.04 : 0.82 });
++    etiqueta.position.set(volumen.position.x, volumen.userData.alturaBase + 0.34, volumen.position.z);
+     // En un plano, los nombres son la mitad de la información: se dejan
+     // puestos en las salas que se pueden reservar en vez de esconderlos
+     // hasta que pases el dedo por encima.
+@@ -393,7 +393,7 @@
+ 
+   /* ---------------- cámara ---------------- */
+   const camara = new THREE.PerspectiveCamera(PLANO ? 34 : 42, aspecto(), 0.1, 400);
+-  const VISTA_POS = PLANO ? new THREE.Vector3(0, 60, 22) : new THREE.Vector3(2, 46, 42);
++  const VISTA_POS = PLANO ? new THREE.Vector3(5, 42, 34) : new THREE.Vector3(2, 46, 42);
+   const VISTA_OBJ = new THREE.Vector3(0, 0, -1);
+   const objetivo = VISTA_OBJ.clone();
+   camara.position.copy(VISTA_POS);
+@@ -537,36 +537,51 @@
+     for (const volumen of volumenes) {
+       const espacio = volumen.userData.espacio;
+       let color = edificio.COLOR_SEMAFORO.desconocido;
++      let borde = 0x94a3b8;
+ 
+-      // El cliente pidió el mapa como semáforo de bloques cerrados:
+-      //   rojo  = no se puede reservar / todo ocupado
+-      //   verde = todos los horarios están libres
+-      //   ámbar = quedan algunos horarios
+-      // Cuando el servidor todavía no contestó usamos gris para no
+-      // anunciar una disponibilidad que no conocemos.
++      /*
++       * La disponibilidad vive en la TAPA del bloque. El cuerpo queda
++       * arquitectónico y oscuro. Eso evita el muro verde gigante de la
++       * versión anterior y hace que el mapa se lea como edificio.
++       *
++       *  rojo oscuro = no reservable
++       *  rojo vivo   = reservable pero sin huecos
++       *  verde       = todo lo restante libre
++       *  ámbar       = disponibilidad parcial
++       *  gris        = todavía sin respuesta del servidor
++       */
+       if (!volumen.userData.reservable || espacio.estado !== "disponible") {
+-        color = edificio.COLOR_SEMAFORO.rojo;
++        color = 0x5f2027;
++        borde = edificio.COLOR_SEMAFORO.rojo;
+       } else {
+         const d = mapa[String(espacio.id)];
+         if (!d || !Number.isFinite(Number(d.total))) {
+           color = edificio.COLOR_SEMAFORO.desconocido;
++          borde = 0x94a3b8;
+         } else if (Number(d.total) <= 0 || Number(d.libres) <= 0) {
+-          color = edificio.COLOR_SEMAFORO.rojo;
++          color = 0xb91c1c;
++          borde = 0xff6b6b;
+         } else if (Number(d.libres) >= Number(d.total)) {
+-          color = edificio.COLOR_SEMAFORO.verde;
++          color = 0x15803d;
++          borde = 0x4ade80;
+         } else {
+-          color = edificio.COLOR_SEMAFORO.amarillo;
++          color = 0xb45309;
++          borde = 0xfbbf24;
+         }
+       }
+ 
+-      volumen.material.color.setHex(color);
+-      volumen.material.emissive?.setHex(color);
+-      volumen.material.emissiveIntensity = PLANO ? 0 : 0.12;
+-      volumen.userData.colorBase = volumen.material.color.clone();
+-      volumen.userData.bordes?.material?.color?.setHex(color);
+-      if (volumen.userData.bordes?.material) {
+-        volumen.userData.bordes.material.opacity = PLANO ? 0.9 : 0.5;
++      const cap = volumen.userData.statusCap;
++      if (cap?.material?.color) {
++        cap.material.color.setHex(color);
++        volumen.userData.statusColorBase = cap.material.color.clone();
++      } else {
++        // Vista realista antigua: conserva compatibilidad.
++        volumen.material.color.setHex(color);
++        volumen.userData.colorBase = volumen.material.color.clone();
+       }
++
++      volumen.userData.statusBordes?.material?.color?.setHex(borde);
++      if (volumen.userData.statusBordes?.material) volumen.userData.statusBordes.material.opacity = 1;
+     }
+   }
+ 
+@@ -672,7 +687,9 @@
+       if (sobre) restaurarColor(sobre);
+       sobre = objeto;
+       if (sobre) {
+-        sobre.material.color.lerp(new THREE.Color(0xffffff), 0.22);
++        const cap = sobre.userData.statusCap;
++        if (cap?.material?.color) cap.material.color.lerp(new THREE.Color(0xffffff), 0.18);
++        else sobre.material.color.lerp(new THREE.Color(0xffffff), 0.22);
+         lienzo.style.cursor = "pointer";
+       } else {
+         lienzo.style.cursor = "grab";
+@@ -703,6 +720,11 @@
+   }
+ 
+   function restaurarColor(objeto) {
++    const cap = objeto.userData.statusCap;
++    if (cap?.material?.color && objeto.userData.statusColorBase) {
++      cap.material.color.copy(objeto.userData.statusColorBase);
++      return;
++    }
+     if (objeto.userData.colorBase) objeto.material.color.copy(objeto.userData.colorBase);
+   }
+ 
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/js/views/mapa.js /mnt/data/smarthub_map_edit/js/views/mapa.js
+--- /mnt/data/smarthub_260_base/js/views/mapa.js	2026-08-15 05:18:22.000000000 +0000
++++ /mnt/data/smarthub_map_edit/js/views/mapa.js	2026-08-15 05:35:27.989600163 +0000
+@@ -27,6 +27,19 @@
+ let desuscribir = [];
+ const st = { fecha: isoFecha(), espacioSel: null, disponibilidad: {}, bloques: [], bloqueSel: null, amenidades: [] };
+ 
++// Canon comercial de V1. Aunque una base vieja todavía conserve
++// `reservable=true` en áreas históricas, el mapa nunca las pinta como
++// disponibles ni ofrece un botón de reserva. La migración 06/09 debe
++// dejar la base igual; esto evita que una base atrasada vuelva verde el
++// edificio entero mientras se termina el despliegue.
++const CODIGOS_RESERVABLES_MAPA = new Set(["OF-A", "OF-B", "OF-C", "OF-D"]);
++function normalizarReservablesMapa(lista = []) {
++  return lista.map((e) => ({
++    ...e,
++    reservable: CODIGOS_RESERVABLES_MAPA.has(String(e.codigo || "").toUpperCase()) && Boolean(e.reservable),
++  }));
++}
++
+ export async function render(contenedor, ctx) {
+   st.fecha = ctx?.query?.get("fecha") || isoFecha();
+   st.espacioSel = null;
+@@ -88,11 +101,12 @@
+ 
+   /* ---------- datos ---------- */
+   progreso.textContent = t("mapa.progresoCatalogo");
+-  const [espacios, edificios, amenidades] = await Promise.all([
++  const [espaciosRaw, edificios, amenidades] = await Promise.all([
+     api.getEspacios(),
+     api.getEdificios().catch(() => []),
+     api.getAmenidades().catch(() => []),
+   ]);
++  const espacios = normalizarReservablesMapa(espaciosRaw);
+   st.amenidades = amenidades;
+   // Sin edificio en la base se usa la envolvente del plano, no unas
+   // medidas sueltas: si no coinciden, los bloques salen descuadrados
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/package.json /mnt/data/smarthub_map_edit/package.json
+--- /mnt/data/smarthub_260_base/package.json	2026-08-15 05:18:22.000000000 +0000
++++ /mnt/data/smarthub_map_edit/package.json	2026-08-15 05:35:28.591753633 +0000
+@@ -1,6 +1,6 @@
+ {
+   "name": "smart-hub",
+-  "version": "2.6.0",
++  "version": "2.6.1",
+   "private": true,
+   "description": "Smart Hub — reservas de espacios con mapa 3D. App estática (ES modules, sin build) sobre Supabase.",
+   "type": "module",
+diff -ruN '--exclude=_ENTREGA' /mnt/data/smarthub_260_base/sw.js /mnt/data/smarthub_map_edit/sw.js
+--- /mnt/data/smarthub_260_base/sw.js	2026-08-15 05:18:22.000000000 +0000
++++ /mnt/data/smarthub_map_edit/sw.js	2026-08-15 05:35:28.591644461 +0000
+@@ -26,7 +26,7 @@
+  * prueba que lo comprueba (tests/prelanzamiento.mjs, caso P), justo para
+  * que no se olvide.
+  */
+-const VERSION = "v2.6.0";
++const VERSION = "v2.6.1";
+ const CACHE_SHELL = `co-shell-${VERSION}`;
+ const CACHE_EXTERNO = `co-externo-${VERSION}`;
+ const CACHE_IMG = `co-img-${VERSION}`;
