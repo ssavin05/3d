@@ -1,0 +1,52 @@
+{
+  "name": "Smart Hub — Reservas",
+  "short_name": "Smart Hub",
+  "description": "Reserva oficinas privadas con mapa 3D interactivo, disponibilidad en tiempo real y pago en línea.",
+  "id": "smart-hub",
+  "start_url": "./index.html?fuente=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0a0f18",
+  "theme_color": "#0ea5e9",
+  "lang": "es-MX",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "assets/icons/icono-96.png",  "sizes": "96x96",   "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icono-mask.png","sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/icono.svg",     "sizes": "any",     "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mapa 3D",
+      "short_name": "Mapa",
+      "description": "Explora el edificio en 3D",
+      "url": "./index.html#/mapa",
+      "icons": [{ "src": "assets/icons/icono-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Mis reservas",
+      "short_name": "Reservas",
+      "description": "Consulta y administra tus reservas",
+      "url": "./index.html#/reservas",
+      "icons": [{ "src": "assets/icons/icono-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Reservar ahora",
+      "short_name": "Reservar",
+      "description": "Ver espacios disponibles hoy",
+      "url": "./index.html#/espacios",
+      "icons": [{ "src": "assets/icons/icono-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "share_target": {
+    "action": "./index.html#/espacios",
+    "method": "GET",
+    "params": { "title": "titulo", "text": "q", "url": "url" }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "smart-hub",
+  "version": "2.7.2",
+  "private": true,
+  "description": "Smart Hub — reservas de espacios con mapa 3D. App estática (ES modules, sin build) sobre Supabase.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "python3 -m http.server 8099",
+    "test": "node tests/correr.mjs",
+    "test:e2e": "node tests/correr.mjs --solo e2e",
+    "test:sql": "node tests/correr.mjs --solo sql",
+    "test:security": "node tests/correr.mjs --solo seguridad",
+    "test:auth": "node tests/auth/index.mjs",
+    "db:preparar": "bash tests/sql/preparar.sh"
+  },
+  "devDependencies": {
+    "pg": "^8.13.0",
+    "playwright": "^1.49.0"
+  }
+}

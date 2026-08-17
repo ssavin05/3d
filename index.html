@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+
+<!-- ====================================================================
+     Política de seguridad de contenido (CSP).
+
+     Es la última línea de defensa contra XSS: aunque se colara HTML
+     malicioso en un texto de la base de datos, el navegador no
+     ejecutaría scripts ajenos ni enviaría datos a otro servidor.
+
+     • script-src va SIN 'unsafe-inline': los dos scripts en línea de
+       este archivo se autorizan por hash (sha256). Si se edita
+       cualquiera de los dos hay que recalcular el hash — ver
+       docs/SEGURIDAD.md.
+     • style-src sí permite 'unsafe-inline' porque la interfaz usa
+       atributos style="" para medidas calculadas.
+     • frame-ancestors y X-Frame-Options NO funcionan en <meta>: se
+       envían desde el servidor (ver docs/SEGURIDAD.md) y además hay
+       una defensa en JS más abajo.
+     ==================================================================== -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  base-uri 'self';
+  object-src 'none';
+  form-action 'self';
+  script-src 'self' 'sha256-50BMQZxN2ompb3a28SONGzc4otXukeg2Q92l1ik+GZI=' 'sha256-BSKunYSGyVw23wZ+IEGaJNSHGsuYKiy4g0TE73q9eDY=' https://cdn.jsdelivr.net https://unpkg.com https://esm.sh https://www.gstatic.com;
+  script-src-attr 'none';
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' data: https://fonts.gstatic.com;
+  img-src 'self' data: blob: https:;
+  media-src 'self' blob: https:;
+  worker-src 'self' blob:;
+  child-src 'self' blob:;
+  connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co https://*.supabase.in wss://*.supabase.in https://cdn.jsdelivr.net https://unpkg.com https://esm.sh;
+  frame-src 'self' https://my.matterport.com https://www.youtube-nocookie.com;
+  manifest-src 'self';
+  upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<title>Smart Hub — Reserva tu espacio</title>
+<meta name="description" content="Reserva oficinas privadas con mapa 3D interactivo, disponibilidad en tiempo real y pago en línea.">
+<meta name="theme-color" content="#0b0b0b">
+<meta name="color-scheme" content="light dark">
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/icono-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Smart Hub">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- Compartir -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Smart Hub — Reserva tu espacio">
+<meta property="og:description" content="Mapa 3D interactivo, disponibilidad en tiempo real y reserva en segundos.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Tipografías: se precargan para evitar el salto de texto -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fuentes" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" media="print">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/views.css">
+<link rel="stylesheet" href="css/executive-theme.css">
+
+<!-- Arranque mínimo: anti-clickjacking, tema sin parpadeo y carga diferida
+     de las tipografías. Va autorizado por hash en la CSP: si cambias una
+     sola letra, recalcula el hash (docs/SEGURIDAD.md). -->
+<script>
+(function () {
+  // frame-ancestors no se puede declarar en <meta>: si la página acaba
+  // dentro de un iframe ajeno (clickjacking), se rompe el marco.
+  try {
+    if (self !== top) top.location = self.location;
+  } catch (e) {
+    document.documentElement.style.display = "none";
+  }
+
+  try {
+    var tema = localStorage.getItem("co.tema");
+    if (tema === "oscuro" || tema === "claro") document.documentElement.setAttribute("data-tema", tema);
+    if (localStorage.getItem("co.animaciones") === "off") document.documentElement.setAttribute("data-animaciones", "off");
+    var oscuro = tema === "oscuro" || (tema !== "claro" && matchMedia("(prefers-color-scheme: dark)").matches);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", oscuro ? "#0a0f18" : "#f5f7fa");
+  } catch (e) {}
+
+  var fuentes = document.getElementById("fuentes");
+  if (fuentes) {
+    var activar = function () { fuentes.media = "all"; };
+    if (fuentes.sheet) activar();
+    else fuentes.addEventListener("load", activar);
+  }
+})();
+</script>
+
+<!-- El cliente de Supabase (vendor/supabase/supabase.umd.js) NO se
+     carga aquí a propósito. Son 108 KB que sólo hacen falta cuando hay
+     sesión o cuando se reserva de verdad; js/data/db.js lo pide en ese
+     momento. Quien entra a mirar el catálogo o el mapa no lo descarga.
+     Va incluido en el proyecto, así que cuando toca carga al instante y
+     sin depender de ninguna CDN. -->
+
+<!-- Mapa de importación de Three.js.
+     El núcleo va incluido en el proyecto (vendor/three): así el mapa 3D
+     funciona sin conexión y sin depender de ninguna CDN.
+     Los complementos opcionales (GLTFLoader, DRACOLoader, RGBELoader…) sí
+     se piden a la CDN, y sólo si el edificio tiene modelos o HDRI reales;
+     si no llegan, la escena sigue funcionando con la geometría generada.
+     Nada de esto se descarga hasta que se abre el mapa 3D. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<!-- Pantalla de carga: visible hasta que la app arranca -->
+<div id="splash" role="status" aria-label="Cargando aplicación">
+  <div class="splash-marca">
+    <svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f0cf72"/><stop offset="100%" stop-color="#b98b32"/>
+        </linearGradient>
+      </defs>
+      <path d="M32 4 58 18v28L32 60 6 46V18z" fill="none" stroke="url(#g)" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M6 18l26 14 26-14M32 32v28" fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linejoin="round" opacity=".75"/>
+      <rect x="22" y="26" width="8" height="8" rx="1.5" fill="#f0cf72" opacity=".9"/>
+      <rect x="34" y="33" width="8" height="8" rx="1.5" fill="#b98b32" opacity=".9"/>
+    </svg>
+  </div>
+  <h1 class="splash-titulo">Smart Hub</h1>
+  <p class="splash-sub">Preparando tu espacio…</p>
+  <div class="splash-barra"><span></span></div>
+</div>
+
+<div id="app" hidden>
+  <!-- Franja de estado: sin conexión / actualización disponible -->
+  <div id="franja-estado" hidden></div>
+
+  <header id="topbar" hidden>
+    <button type="button" id="btn-menu" class="btn btn-fantasma btn-icono" aria-label="Abrir menú"></button>
+    <button type="button" id="btn-atras" class="btn btn-fantasma btn-icono" aria-label="Volver" hidden></button>
+    <div class="tb-titulo"><span id="tb-texto">Smart Hub</span><span class="tb-sub" id="tb-sub"></span></div>
+    <button type="button" id="btn-notif" class="btn btn-fantasma btn-icono" aria-label="Notificaciones"></button>
+    <button type="button" id="btn-tema" class="btn btn-fantasma btn-icono" aria-label="Cambiar tema"></button>
+  </header>
+
+  <div id="cuerpo">
+    <nav id="lateral-fijo" aria-label="Navegación principal"></nav>
+    <main id="vista" aria-live="polite"></main>
+  </div>
+
+  <nav id="nav" aria-label="Navegación inferior" hidden></nav>
+</div>
+
+<noscript>
+  <div style="padding:32px;font-family:system-ui;text-align:center">
+    <h1>Necesitas activar JavaScript</h1>
+    <p>Esta aplicación usa un mapa 3D interactivo y datos en tiempo real, así que requiere JavaScript para funcionar.</p>
+  </div>
+</noscript>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
