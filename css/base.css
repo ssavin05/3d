@@ -1,0 +1,301 @@
+/* ======================================================================
+   base.css — Reset, tipografía y layout raíz de la aplicación.
+   ====================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* `hidden` debe ganar a cualquier `display` explícito (botones, chips…). */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--fuente);
+  font-size: var(--txt-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  text-size-adjust: 100%;
+}
+
+body { overflow: hidden; }
+
+h1, h2, h3, h4 { margin: 0; font-family: var(--fuente-display); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+h1 { font-size: var(--txt-2xl); }
+h2 { font-size: var(--txt-xl); }
+h3 { font-size: var(--txt-md); }
+h4 { font-size: var(--txt-base); }
+p  { margin: 0 0 var(--e3); }
+p:last-child { margin-bottom: 0; }
+
+a { color: var(--marca); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+img, svg, video, canvas { display: block; max-width: 100%; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+:focus-visible {
+  outline: 2px solid var(--linea-marca);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+::selection { background: color-mix(in srgb, var(--marca) 30%, transparent); }
+
+/* barras de desplazamiento discretas */
+* { scrollbar-width: thin; scrollbar-color: var(--linea-fuerte) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--linea-fuerte); border-radius: var(--r-full); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------------------------------------------------------------
+   Estructura de la aplicación
+   --------------------------------------------------------------------- */
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* Barra superior */
+#topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  height: calc(var(--topbar-alto) + var(--seguro-top));
+  padding: var(--seguro-top) calc(var(--e3) + var(--seguro-right)) 0 calc(var(--e3) + var(--seguro-left));
+  background: var(--superficie-vidrio);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border-bottom: 1px solid var(--linea);
+  z-index: var(--z-nav);
+  transition: transform var(--t-medio) var(--ease), opacity var(--t-medio) var(--ease);
+}
+#topbar[hidden] { display: none; }
+#topbar .tb-titulo {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--fuente-display);
+  font-weight: 700;
+  font-size: var(--txt-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#topbar .tb-sub {
+  display: block;
+  font-family: var(--fuente);
+  font-weight: 500;
+  font-size: var(--txt-xs);
+  color: var(--text-dim);
+}
+
+/* Contenedor de vistas */
+#vista {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
+}
+.vista-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  padding-bottom: calc(var(--e8) + var(--seguro-bottom));
+}
+.vista-contenido {
+  max-width: var(--ancho-max);
+  margin: 0 auto;
+  padding: var(--e4) calc(var(--e4) + var(--seguro-right)) var(--e6) calc(var(--e4) + var(--seguro-left));
+}
+.vista-plena { position: absolute; inset: 0; }
+
+/* Transición entre vistas */
+.vista-entra { animation: vistaEntra var(--t-medio) var(--ease-out) both; }
+@keyframes vistaEntra {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Navegación inferior */
+#nav {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  height: calc(var(--nav-alto) + var(--seguro-bottom));
+  padding-bottom: var(--seguro-bottom);
+  background: var(--superficie-vidrio);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border-top: 1px solid var(--linea);
+  z-index: var(--z-nav);
+}
+#nav[hidden] { display: none; }
+.nav-item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text-dim);
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  position: relative;
+  transition: color var(--t-rapido) var(--ease);
+}
+.nav-item svg { width: 22px; height: 22px; stroke-width: 1.9; transition: transform var(--t-medio) var(--ease-rebote); }
+.nav-item[aria-current="page"] { color: var(--marca); }
+.nav-item[aria-current="page"] svg { transform: translateY(-2px) scale(1.08); }
+.nav-item[aria-current="page"]::before {
+  content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 26px; height: 3px; border-radius: 0 0 3px 3px; background: var(--marca);
+}
+.nav-item:active svg { transform: scale(.9); }
+.nav-punto {
+  position: absolute; top: 8px; left: calc(50% + 8px);
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--taken); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+
+@media (min-width: 900px) {
+  :root { --nav-alto: 0px; }
+  #nav { display: none; }
+  #topbar { padding-left: calc(var(--e6) + var(--seguro-left)); padding-right: calc(var(--e6) + var(--seguro-right)); }
+}
+
+/* Barra lateral en escritorio */
+#lateral-fijo { display: none; }
+@media (min-width: 900px) {
+  #app { flex-direction: column; }
+  #cuerpo { flex: 1 1 auto; display: flex; min-height: 0; }
+  #lateral-fijo {
+    display: flex; flex-direction: column; gap: 2px;
+    width: 236px; flex: 0 0 236px;
+    padding: var(--e4) var(--e3);
+    border-right: 1px solid var(--linea);
+    background: var(--superficie);
+    overflow-y: auto;
+  }
+}
+#cuerpo { flex: 1 1 auto; display: flex; min-height: 0; }
+#vista { flex: 1 1 auto; min-width: 0; }
+
+/* Utilidades de layout */
+.fila { display: flex; align-items: center; gap: var(--e2); }
+.fila-sep { display: flex; align-items: center; justify-content: space-between; gap: var(--e3); }
+.col { display: flex; flex-direction: column; gap: var(--e2); }
+.crece { flex: 1 1 auto; min-width: 0; }
+.envolver { flex-wrap: wrap; }
+.centro { display: grid; place-items: center; }
+.oculto { display: none !important; }
+.mt-0 { margin-top: 0; } .mt-2 { margin-top: var(--e2); } .mt-4 { margin-top: var(--e4); } .mt-6 { margin-top: var(--e6); }
+.mb-2 { margin-bottom: var(--e2); } .mb-4 { margin-bottom: var(--e4); } .mb-6 { margin-bottom: var(--e6); }
+.texto-dim { color: var(--text-dim); }
+.texto-sm { font-size: var(--txt-sm); }
+.texto-xs { font-size: var(--txt-xs); }
+.texto-centro { text-align: center; }
+.mono { font-family: var(--fuente-mono); font-variant-numeric: tabular-nums; }
+.grid-auto {
+  display: grid; gap: var(--e3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+}
+.grid-2 { display: grid; gap: var(--e3); grid-template-columns: 1fr 1fr; }
+.grid-3 { display: grid; gap: var(--e3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+
+/* ======================================================================
+   RESPONSIVE — de un teléfono pequeño a un monitor grande
+
+   La app se usa igual desde un teléfono en la calle que desde el
+   escritorio de la recepción, así que la rejilla se adapta por tramos en
+   vez de tener un único punto de corte.
+   ====================================================================== */
+
+/* Nada desborda nunca a lo ancho: es el fallo responsive más común. */
+html, body { max-width: 100%; overflow-x: hidden; }
+img, video, canvas, svg { max-width: 100%; height: auto; }
+
+/* Las tablas anchas hacen scroll dentro de su caja, no en la página. */
+.tabla-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* --- Teléfonos pequeños (iPhone SE, Android de gama de entrada) --- */
+@media (max-width: 380px) {
+  :root { --txt-base: 15px; }
+  .vista-contenido { padding-left: var(--e3); padding-right: var(--e3); }
+  .grid-3, .grid-auto { grid-template-columns: 1fr; }
+  .nav-item span { font-size: 10px; }
+  .btn { padding-inline: var(--e3); }
+  h1 { font-size: clamp(22px, 7vw, 30px); }
+}
+
+/* --- Teléfono en horizontal: poca altura, hay que ganar vertical --- */
+@media (max-height: 460px) and (orientation: landscape) {
+  #topbar { min-height: 44px; }
+  #nav { display: none; }            /* el menú lateral toma el relevo */
+  .vista-contenido { padding-block: var(--e2); }
+}
+
+/* --- Tabletas en vertical --- */
+@media (min-width: 600px) and (max-width: 899px) {
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .grid-auto { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .vista-contenido { max-width: 680px; margin-inline: auto; }
+}
+
+/* --- Escritorio: el contenido no se estira sin fin --- */
+@media (min-width: 1200px) {
+  .vista-contenido { max-width: 1080px; margin-inline: auto; }
+  .grid-auto { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
+@media (min-width: 1600px) {
+  .vista-contenido { max-width: 1240px; }
+}
+
+/* --- Pantallas muy altas: el mapa aprovecha el alto disponible --- */
+@media (min-height: 900px) {
+  .mapa-lienzo, #mapa-canvas { min-height: 62vh; }
+}
+
+/* --- Muescas y barras del sistema (iPhone, Android con gestos) --- */
+@supports (padding: max(0px)) {
+  #topbar { padding-top: max(0px, env(safe-area-inset-top)); }
+  #nav { padding-bottom: max(var(--e2), env(safe-area-inset-bottom)); }
+  .vista-contenido {
+    padding-left: max(var(--e4), env(safe-area-inset-left));
+    padding-right: max(var(--e4), env(safe-area-inset-right));
+  }
+}
+
+/* --- Impresión: comprobantes y reservas en papel --- */
+@media print {
+  #topbar, #nav, #lateral-fijo, #franja-estado, .btn, .hoja, .toast { display: none !important; }
+  body { background: #fff; color: #000; }
+  .vista-scroll { overflow: visible; height: auto; }
+}
+
+/* --- Quien pide menos movimiento, recibe menos movimiento --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important; scroll-behavior: auto !important;
+  }
+}
